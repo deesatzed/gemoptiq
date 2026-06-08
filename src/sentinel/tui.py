@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import List
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Log, ProgressBar
@@ -26,8 +27,9 @@ class SentinelTUI(App):
         self.runner = AgentRunner(command)
         self.auditor = Auditor(self.config.model_id)
         self.output_history: List[str] = []
-        self.max_history = 10
+        self.max_history = 50
         self.is_paused = False
+        self.prompt_regex = re.compile(r"\?\s*$|\[y/n\]", re.IGNORECASE)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -44,6 +46,10 @@ class SentinelTUI(App):
         self.query_one("#agent_log", Log).write_line(f"Starting agent: {self.command}")
         self.set_interval(0.1, self.poll_output)
 
+    async def on_unmount(self) -> None:
+        """Ensure the agent process is killed when the TUI exits."""
+        self.runner.kill()
+
     async def poll_output(self) -> None:
         if self.is_paused:
             return
@@ -57,7 +63,7 @@ class SentinelTUI(App):
                 self.output_history.pop(0)
 
             # Prompt detection
-            if clean_line.endswith("?") or "[y/n]" in clean_line.lower():
+            if self.prompt_regex.search(clean_line):
                 await self.perform_audit(clean_line)
 
             line = self.runner.get_output()
@@ -106,4 +112,4 @@ class SentinelTUI(App):
 
     async def action_quit(self) -> None:
         self.runner.kill()
-        await self.action_exit()
+        self.exit()
