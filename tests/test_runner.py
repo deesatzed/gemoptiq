@@ -2,6 +2,7 @@ import time
 import pytest
 import os
 import signal
+import threading
 from src.sentinel.runner import AgentRunner
 
 def test_runner_basic_output():
@@ -147,3 +148,47 @@ def test_runner_kill_process_group():
     # All processes in the group should be gone
     pids_after = get_pgid_processes(pgid)
     assert len(pids_after) == 0
+
+def test_prevent_double_start():
+    runner = AgentRunner("sleep 10")
+    runner.start()
+    first_process = runner.process
+    assert first_process is not None
+    
+    with pytest.raises(RuntimeError, match="Process is already active"):
+        runner.start()
+    
+    assert runner.process == first_process
+    runner.kill()
+
+def test_robustness_any_time():
+    runner = AgentRunner("sleep 10")
+    # Should not crash when calling these before start
+    runner.suspend()
+    runner.resume()
+    runner.kill()
+    
+    runner.start()
+    runner.kill()
+    # Should not crash after kill
+    runner.suspend()
+    runner.resume()
+    runner.kill()
+
+def test_thread_safety_kill():
+    runner = AgentRunner("sleep 10")
+    runner.start()
+    
+    def kill_it():
+        try:
+            runner.kill()
+        except Exception:
+            pass
+            
+    threads = [threading.Thread(target=kill_it) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    
+    assert runner.process is None
