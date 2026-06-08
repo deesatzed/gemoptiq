@@ -30,10 +30,10 @@ def load_config(path_str: str) -> SentinelConfig:
                 for p in data[key]
             ]
     
-    # Filter config to only include valid SentinelConfig fields
+    # Filter config to only include valid SentinelConfig fields and ignore null values
     valid_fields = SentinelConfig.__dataclass_fields__.keys()
     filtered_config = {
-        k: v for k, v in data.items() if k in valid_fields
+        k: v for k, v in data.items() if k in valid_fields and v is not None
     }
     
     return SentinelConfig(**filtered_config)
