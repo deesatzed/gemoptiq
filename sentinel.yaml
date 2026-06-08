@@ -1,0 +1,7 @@
+protected_paths:
+  - "**/.env"
+  - "~/.ssh/**"
+auto_approve_paths:
+  - "docs/**"
+  - "tests/unit/**"
+model_id: "mlx-community/gemma-4-12B-it-OptiQ-4bit"
