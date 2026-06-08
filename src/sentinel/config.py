@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 import yaml
-import os
 
 @dataclass
 class SentinelConfig:
@@ -16,24 +15,25 @@ def load_config(path_str: str) -> SentinelConfig:
     
     try:
         with path.open('r') as f:
-            config_dict = yaml.safe_load(f)
+            data = yaml.safe_load(f)
     except yaml.YAMLError:
         return SentinelConfig()
     
-    if not isinstance(config_dict, dict):
+    if not isinstance(data, dict):
         return SentinelConfig()
         
-    # Expand home expansion for protected_paths
-    if 'protected_paths' in config_dict and isinstance(config_dict['protected_paths'], list):
-        config_dict['protected_paths'] = [
-            os.path.expanduser(p) if isinstance(p, str) else p 
-            for p in config_dict['protected_paths']
-        ]
+    # Expand home directory for path lists
+    for key in ['protected_paths', 'auto_approve_paths']:
+        if key in data and isinstance(data[key], list):
+            data[key] = [
+                str(Path(p).expanduser()) if isinstance(p, str) else p 
+                for p in data[key]
+            ]
     
-    # Filter config_dict to only include fields present in SentinelConfig
-    valid_fields = {k for k in SentinelConfig.__dataclass_fields__}
+    # Filter config to only include valid SentinelConfig fields
+    valid_fields = SentinelConfig.__dataclass_fields__.keys()
     filtered_config = {
-        k: v for k, v in config_dict.items() if k in valid_fields
+        k: v for k, v in data.items() if k in valid_fields
     }
     
     return SentinelConfig(**filtered_config)
