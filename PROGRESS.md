@@ -68,6 +68,12 @@
 - Added a PTY regression test proving a child process that emits `ESC[6n` receives `ESC[1;1R`.
 - Retried a Codex full-screen TUI smoke after terminal query responses were added; it still failed to progress past initial terminal-control/query sequences, so full interactive Codex TUI supervision remains unproven.
 - Updated `GOAL.md`, `README.md`, and `RISK_NOTES.md` to reflect the new real-auditor evidence and the remaining full-screen PTY gap.
+- Diagnosed the Codex full-screen TUI stall as a zero-size PTY window: child processes launched through the harness saw terminal size `0x0`.
+- Added a default usable PTY window size of `24x80` before child process startup.
+- Fixed the real-agent harness so expected output that appears after a prior scripted input can satisfy the smoke even when a later optional interaction prompt never appears.
+- Added `python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60`, a bounded named Codex full-screen TUI smoke that initializes an ephemeral git workspace, accepts workspace trust, approves one harmless shell command, and expects `SENTINEL_CODEX_TUI_OK`.
+- Added `python scripts/readiness_check.py --run-codex-tui-smoke` so the readiness matrix can include Codex full-screen TUI workspace-trust and command-approval evidence.
+- Updated `GOAL.md`, `README.md`, and `RISK_NOTES.md` again to reflect that Codex full-screen TUI command approval is now proven; remaining real-agent interactive gaps are Claude/Gemini tool-confirmation flows.
 
 ### Verification
 
@@ -295,16 +301,30 @@
 - `git diff --check`: exits 0 after PTY/status updates.
 - `pytest -q`: `137 passed in 139.06s`.
 - `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.59s`.
+- `pytest -q tests/test_pty_runner.py::test_pty_runner_starts_child_with_usable_window_size`: initially failed with child output `size:0x0`, then passed after setting the slave PTY window size before process launch.
+- `pytest -q tests/test_pty_runner.py tests/test_real_agent_smoke.py`: `13 passed in 1.87s`.
+- `pytest -q tests/test_real_agent_smoke.py::test_real_agent_smoke_accepts_expected_output_after_prior_scripted_input`: initially failed with `status: error`, then passed after accepting post-input expected output before a later scripted prompt.
+- `pytest -q tests/test_real_agent_smoke.py::test_real_agent_smoke_named_codex_tui_mode_uses_two_step_disposable_flow tests/test_readiness_check.py::test_readiness_report_can_run_named_codex_tui_smoke`: initially failed on missing `--codex-tui-smoke` and readiness flag, then passed after implementation with `2 passed in 0.02s`.
+- `pytest -q tests/test_pty_runner.py tests/test_real_agent_smoke.py tests/test_readiness_check.py tests/test_readme.py tests/test_cli.py`: `31 passed in 2.03s`.
+- `python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60`: exits 0 with `status: ok`, `interaction_count: 2`, both interactions detected/injected, `interactive_prompt_control: true`, `proves_model_or_tool_behavior: true`, `expected_output_seen_before_response: false`, and `SENTINEL_CODEX_TUI_OK` in the response.
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `6 manual`, `1 external_blocked`, and `0 fail`.
+- `python scripts/readiness_check.py --run-real-auditor --run-claude-trust-smoke --run-codex-exec-smoke --run-codex-tui-smoke`: exits 0 with `status: partial`, `14 pass`, `3 manual`, `0 external_blocked`, and `0 fail`; the real auditor item reports model id `mlx-community/gemma-4-12B-it-OptiQ-4bit`, verdict `allow` / risk `green`, `load_seconds: 4.621518`, and `audit_seconds: 32.623552`.
+- `python -m py_compile src/sentinel/pty_runner.py scripts/real_agent_smoke.py src/sentinel/readiness.py`: exits 0.
+- `git diff --check`: exits 0 after Codex TUI smoke, docs, and status updates.
+- Tightened Codex TUI smoke reporting so `interactive_prompt_control` requires all expected scripted interactions, not just `all([])`.
+- `python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60`: rerun exits 0 after the stricter control check with `interaction_count: 2`, both interactions detected/injected, `interactive_prompt_control: true`, `proves_model_or_tool_behavior: true`, and `SENTINEL_CODEX_TUI_OK`.
+- `pytest -q`: `142 passed in 128.80s`.
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.56s`.
 
 ### Still Open
 
 - Confirm/review outcomes now log structured approval context, show a mounted-tested approval panel, and support FIFO queueing.
 - Command/tool extraction now handles basic JSON and Bash tool-call text, but still needs validation against real model/tool protocols.
-- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, Claude Code startup trust-prompt control is proven, synthetic multi-prompt flows are proven, and Codex non-interactive model/tool command execution is proven; it still needs a safe full interactive tool-confirmation run against an actual Claude/Gemini/Codex command.
-- PTY runner handles basic terminal queries, but full-screen Codex TUI compatibility remains unproven after a retry that only produced terminal-control/query sequences.
+- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, Claude Code startup trust-prompt control is proven, synthetic multi-prompt flows are proven, Codex non-interactive model/tool command execution is proven, and Codex full-screen TUI workspace trust plus command approval is proven; it still needs safe full interactive tool-confirmation runs against actual Claude/Gemini commands.
+- PTY runner handles basic terminal queries and starts children with a usable default window size, but it is still not a complete terminal emulator.
 - CLI controls for arbitrary override patterns are implemented through repeated `--allow-path`; the TUI also has a first-class manual Textual input modal for arbitrary glob overrides.
 - Aggregate local E2E scenario coverage is implemented; full real-agent model/tool E2E validation remains unproven.
-- Readiness proof matrix is implemented; it intentionally reports partial until full real-agent interactive model/tool evidence is available. Real auditor evidence is now available when the optional check is run with local Metal access.
+- Readiness proof matrix is implemented; it intentionally reports partial until remaining full real-agent interactive Claude/Gemini model/tool evidence is available. Real auditor evidence is available when the optional check is run with local Metal access, and Codex TUI command approval is available through the optional Codex TUI smoke.
 - Formal release publishing/versioning beyond local wheel checks is not implemented yet.
 - Real Gemma model smoke is verified with local Metal access, but remains environment-sensitive and opt-in in default readiness.
 

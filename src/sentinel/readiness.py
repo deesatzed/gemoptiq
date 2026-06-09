@@ -67,6 +67,14 @@ def add_readiness_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--run-codex-tui-smoke",
+        action="store_true",
+        help=(
+            "Also run Codex's full-screen TUI in an ephemeral git workspace "
+            "and verify workspace trust, command approval, and harmless command output."
+        ),
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit non-zero unless every item is pass.",
@@ -87,6 +95,7 @@ def run_readiness(
         run_real_auditor=args.run_real_auditor,
         run_claude_trust_smoke=args.run_claude_trust_smoke and not args.no_run,
         run_codex_exec_smoke=args.run_codex_exec_smoke and not args.no_run,
+        run_codex_tui_smoke=args.run_codex_tui_smoke and not args.no_run,
         runner=runner or run_command,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
@@ -105,6 +114,7 @@ def build_report(
     runner: Runner,
     run_claude_trust_smoke: bool = False,
     run_codex_exec_smoke: bool = False,
+    run_codex_tui_smoke: bool = False,
 ) -> dict:
     items: dict[str, dict] = {}
 
@@ -218,6 +228,27 @@ def build_report(
             "not interactive prompt control."
         ),
     )
+    items["real_agent_codex_tui_smoke"] = command_item(
+        (
+            "Verify Codex full-screen TUI workspace trust, interactive command "
+            "approval, and harmless command output inside an ephemeral git workspace."
+        ),
+        [
+            "python",
+            "scripts/real_agent_smoke.py",
+            "--codex-tui-smoke",
+            "--timeout",
+            "60",
+        ],
+        run_codex_tui_smoke,
+        runner,
+        project_root=project_root,
+        manual_evidence=(
+            "Optional bounded real Codex full-screen TUI smoke; rerun with "
+            "`--run-codex-tui-smoke`. This proves interactive prompt control "
+            "and a harmless model/tool command path."
+        ),
+    )
     items["real_agent_command"] = manual_item(
         (
             "Run the guarded real-agent harness with a real Claude/Gemini/Codex "
@@ -226,8 +257,9 @@ def build_report(
         (
             "Requires a deliberately safe disposable command and confirmed "
             "account/credential state. The Claude trust-prompt smoke proves "
-            "startup/control, and the Codex exec smoke proves non-interactive "
-            "model/tool execution."
+            "startup/control, Codex exec proves non-interactive model/tool "
+            "execution, and the optional Codex TUI smoke proves one full-screen "
+            "interactive command-approval path."
         ),
         [
             "python",

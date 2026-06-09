@@ -2,6 +2,9 @@ import os
 import subprocess as sp
 import sys
 import time
+import fcntl
+import struct
+import termios
 
 import pytest
 
@@ -97,5 +100,22 @@ def test_pty_runner_answers_cursor_position_query():
     try:
         output = wait_for_text(runner, "response:")
         assert "b'\\x1b[1;1R'" in output
+    finally:
+        runner.kill()
+
+
+def test_pty_runner_starts_child_with_usable_window_size():
+    script = (
+        f"{sys.executable} -c \""
+        "import fcntl, struct, sys, termios; "
+        "rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, b'\\\\0' * 8)); "
+        "print(f'size:{rows}x{cols}', flush=True)"
+        "\""
+    )
+    runner = PtyAgentRunner(script)
+    runner.start()
+    try:
+        output = wait_for_text(runner, "size:")
+        assert "size:24x80" in output
     finally:
         runner.kill()

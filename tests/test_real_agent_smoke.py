@@ -122,6 +122,36 @@ def test_real_agent_smoke_runs_scripted_multi_prompt_interactions_in_order():
     assert "answers:y,n" in report["response_text"]
 
 
+def test_real_agent_smoke_accepts_expected_output_after_prior_scripted_input(tmp_path):
+    module = load_real_agent_smoke_module()
+    fixture_command = (
+        f"{sys.executable} -c \""
+        "import sys; "
+        "sys.stdout.write('First prompt [y/n]? '); sys.stdout.flush(); "
+        "answer=sys.stdin.readline().strip(); "
+        "print('marker:SCRIPTED_DONE:' + answer, flush=True)"
+        "\""
+    )
+
+    report = module.run_agent_smoke(
+        command=fixture_command,
+        workspace=tmp_path,
+        approval_input="n",
+        prompt_pattern=module.DEFAULT_PROMPT_PATTERN,
+        expect_output="SCRIPTED_DONE:y",
+        timeout_seconds=1,
+        interactions=[
+            (r"First prompt.*\?", "y"),
+            (r"Second prompt that never appears", "y"),
+        ],
+    )
+
+    assert report["status"] == "ok"
+    assert report["interaction_count"] == 1
+    assert report["expected_output_seen_before_response"] is False
+    assert "SCRIPTED_DONE:y" in report["response_text"]
+
+
 def test_real_agent_smoke_probe_command_reports_noninteractive_agent_metadata():
     result = subprocess.run(
         [
@@ -225,3 +255,75 @@ def test_real_agent_smoke_named_codex_exec_mode_parses_tool_output(monkeypatch, 
     assert "-C" in captured["command"]
     assert captured["timeout"] == 7
     assert captured["input"] == ""
+
+
+def test_real_agent_smoke_named_codex_tui_mode_uses_two_step_disposable_flow(
+    monkeypatch,
+    capsys,
+):
+    module = load_real_agent_smoke_module()
+    captured = {}
+
+    def fake_run(command, *, cwd, capture_output, text, timeout, check):
+        captured.setdefault("subprocess_commands", []).append(command)
+        return SimpleNamespace(returncode=0, stdout="git init ok", stderr="")
+
+    def fake_run_agent_smoke(**kwargs):
+        captured.update(kwargs)
+        return {
+            "status": "ok",
+            "executed": True,
+            "disposable_workspace": True,
+            "prompt_detected": True,
+            "input_injected": True,
+            "process_killed": True,
+            "interactions": [
+                {"prompt_detected": True, "input_injected": True},
+                {"prompt_detected": True, "input_injected": True},
+            ],
+            "expect_output": module.CODEX_TUI_MARKER,
+            "response_text": module.CODEX_TUI_MARKER,
+        }
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "run_agent_smoke", fake_run_agent_smoke)
+
+    exit_code = module.main(["--codex-tui-smoke", "--timeout", "9"])
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert report["status"] == "ok"
+    assert report["codex_tui_smoke"] is True
+    assert report["interactive_prompt_control"] is True
+    assert report["proves_model_or_tool_behavior"] is True
+    assert captured["command"].startswith("codex --no-alt-screen")
+    assert captured["expect_output"] == module.CODEX_TUI_MARKER
+    assert captured["timeout_seconds"] == 9
+    assert captured["interactions"] == module.CODEX_TUI_INTERACTIONS
+    assert captured["subprocess_commands"][0] == ["git", "init"]
+
+
+def test_codex_tui_smoke_requires_all_expected_interactions_for_control(
+    monkeypatch,
+    tmp_path,
+):
+    module = load_real_agent_smoke_module()
+
+    def fake_run(command, *, cwd, capture_output, text, timeout, check):
+        return SimpleNamespace(returncode=0, stdout="git init ok", stderr="")
+
+    def fake_run_agent_smoke(**kwargs):
+        return {
+            "status": "ok",
+            "interactions": [{"prompt_detected": True, "input_injected": True}],
+            "response_text": module.CODEX_TUI_MARKER,
+        }
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "run_agent_smoke", fake_run_agent_smoke)
+
+    report = module.run_codex_tui_smoke(tmp_path, timeout_seconds=9)
+
+    assert report["status"] == "ok"
+    assert report["interactive_prompt_control"] is False
+    assert report["proves_model_or_tool_behavior"] is True

@@ -5,16 +5,28 @@ import os
 import pty
 import queue
 import signal
+import fcntl
+import struct
 import subprocess
+import termios
 import threading
 
 logger = logging.getLogger(__name__)
 
 
 class PtyAgentRunner:
-    def __init__(self, command: str, *, cwd: str | None = None):
+    def __init__(
+        self,
+        command: str,
+        *,
+        cwd: str | None = None,
+        terminal_rows: int = 24,
+        terminal_cols: int = 80,
+    ):
         self.command = command
         self.cwd = cwd
+        self.terminal_rows = terminal_rows
+        self.terminal_cols = terminal_cols
         self.process = None
         self.output_queue = queue.Queue()
         self.reader_thread = None
@@ -29,6 +41,7 @@ class PtyAgentRunner:
 
             master_fd, slave_fd = pty.openpty()
             try:
+                self._set_window_size(slave_fd)
                 self.process = subprocess.Popen(
                     self.command,
                     shell=True,
@@ -66,6 +79,12 @@ class PtyAgentRunner:
             logger.error(f"Error reading PTY output: {e}")
         finally:
             logger.debug("PTY reader thread stopped")
+
+    def _set_window_size(self, fd: int):
+        rows = max(1, self.terminal_rows)
+        cols = max(1, self.terminal_cols)
+        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
 
     def _respond_to_terminal_queries(self, data: bytes):
         responses: list[bytes] = []

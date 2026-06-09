@@ -29,6 +29,15 @@ CODEX_EXEC_PROMPT = (
     "Use the shell to run exactly this harmless command, then report the output: "
     "python -c 'print(\"SENTINEL_CODEX_OK\")'"
 )
+CODEX_TUI_MARKER = "SENTINEL_CODEX_TUI_OK"
+CODEX_TUI_PROMPT = (
+    "Use the shell to run exactly this harmless command and then report its output: "
+    "python -c 'print(\"\".join(map(chr,[83,69,78,84,73,78,69,76,95,67,79,68,69,88,95,84,85,73,95,79,75])))'"
+)
+CODEX_TUI_INTERACTIONS = [
+    (r"Do.*trust|Yes, continue|Press enter", "y"),
+    (r"Would you like to run the following command|Yes, proceed", "y"),
+]
 DEFAULT_AGENT_PROBES = [
     ("codex", ["codex", "--version"]),
     ("claude", ["claude", "--version"]),
@@ -61,6 +70,15 @@ def main(argv: list[str] | None = None) -> int:
             "Run Codex exec in an ephemeral temp workspace and verify a harmless "
             "shell command_execution event. Proves model/tool behavior, not "
             "interactive prompt control."
+        ),
+    )
+    parser.add_argument(
+        "--codex-tui-smoke",
+        action="store_true",
+        help=(
+            "Run Codex's full-screen TUI in an ephemeral git workspace, "
+            "answer workspace trust and command approval prompts, and verify "
+            "a harmless command output marker."
         ),
     )
     parser.add_argument(
@@ -129,6 +147,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.codex_exec_smoke:
         with tempfile.TemporaryDirectory(prefix="sentinel-codex-exec-smoke-") as tmp:
             report = run_codex_exec_smoke(Path(tmp), timeout_seconds=args.timeout)
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return 0 if report["status"] == "ok" else 1
+
+    if args.codex_tui_smoke:
+        with tempfile.TemporaryDirectory(prefix="sentinel-codex-tui-smoke-") as tmp:
+            report = run_codex_tui_smoke(Path(tmp), timeout_seconds=args.timeout)
             print(json.dumps(report, indent=2, sort_keys=True))
             return 0 if report["status"] == "ok" else 1
 
@@ -269,6 +293,54 @@ def run_codex_exec_smoke(workspace: Path, *, timeout_seconds: float) -> dict:
     }
 
 
+def run_codex_tui_smoke(workspace: Path, *, timeout_seconds: float) -> dict:
+    git_result = subprocess.run(
+        ["git", "init"],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+        check=False,
+    )
+    command = (
+        "codex --no-alt-screen "
+        f"-C {shlex.quote(str(workspace))} "
+        f"-s read-only -a untrusted {shlex.quote(CODEX_TUI_PROMPT)}"
+    )
+    if git_result.returncode != 0:
+        return {
+            "status": "error",
+            "codex_tui_smoke": True,
+            "disposable_workspace": True,
+            "workspace": str(workspace),
+            "command": command,
+            "interactive_prompt_control": False,
+            "proves_model_or_tool_behavior": False,
+            "error": "git init failed",
+            "output_tail": (git_result.stdout + git_result.stderr).strip()[-2000:],
+        }
+
+    report = run_agent_smoke(
+        command=command,
+        workspace=workspace,
+        approval_input="n",
+        prompt_pattern=DEFAULT_PROMPT_PATTERN,
+        expect_output=CODEX_TUI_MARKER,
+        timeout_seconds=timeout_seconds,
+        interactions=CODEX_TUI_INTERACTIONS,
+    )
+    interaction_steps = report.get("interactions", [])
+    interaction_control = len(interaction_steps) == len(CODEX_TUI_INTERACTIONS) and all(
+        step.get("prompt_detected") and step.get("input_injected")
+        for step in interaction_steps
+    )
+    marker_seen = CODEX_TUI_MARKER in report.get("response_text", "")
+    report["codex_tui_smoke"] = True
+    report["interactive_prompt_control"] = bool(interaction_control)
+    report["proves_model_or_tool_behavior"] = bool(marker_seen)
+    return report
+
+
 def parse_jsonl_events(output: str) -> list[dict]:
     events: list[dict] = []
     for line in output.splitlines():
@@ -340,6 +412,7 @@ def run_agent_smoke(
     input_injected = False
     killed = False
     started = False
+    expected_seen_before_response = False
     try:
         runner.start()
         started = True
@@ -348,10 +421,17 @@ def run_agent_smoke(
                 step_regex = re.compile(pattern, re.IGNORECASE)
                 step_output = wait_for_output(
                     runner,
-                    lambda seen, regex=step_regex: bool(regex.search(seen)),
+                    lambda seen, regex=step_regex: bool(regex.search(seen))
+                    or bool(input_injected and expect_output and expect_output in seen),
                     timeout_seconds=timeout_seconds,
                 )
                 step_detected = bool(step_regex.search(step_output))
+                expected_seen = bool(expect_output and expect_output in step_output)
+                if expected_seen and not input_injected:
+                    expected_seen_before_response = True
+                if expected_seen and input_injected and not step_detected:
+                    response_text += step_output
+                    break
                 prompt_text += step_output
                 step_injected = False
                 if step_detected:
@@ -369,11 +449,12 @@ def run_agent_smoke(
                     break
             prompt_detected = all(step["prompt_detected"] for step in interaction_results)
             if expect_output:
-                response_text = wait_for_output(
-                    runner,
-                    lambda seen: expect_output in seen,
-                    timeout_seconds=timeout_seconds,
-                )
+                if expect_output not in response_text:
+                    response_text = wait_for_output(
+                        runner,
+                        lambda seen: expect_output in seen,
+                        timeout_seconds=timeout_seconds,
+                    )
             else:
                 response_text = wait_for_output(
                     runner,
@@ -400,7 +481,8 @@ def run_agent_smoke(
         killed = runner.process is None
 
     status = "ok" if started and prompt_detected and input_injected and killed else "error"
-    expected_seen_before_response = bool(expect_output and expect_output in prompt_text)
+    if not scripted_interactions:
+        expected_seen_before_response = bool(expect_output and expect_output in prompt_text)
     if expect_output and expect_output not in response_text:
         status = "error"
     if expected_seen_before_response:
