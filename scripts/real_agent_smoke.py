@@ -72,6 +72,16 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="Optional output marker to wait for after input injection.",
     )
+    parser.add_argument(
+        "--interaction",
+        action="append",
+        default=[],
+        metavar="REGEX=>INPUT",
+        help=(
+            "Script a prompt/input step. Repeat to prove multi-prompt flows, "
+            "such as startup trust followed by a tool confirmation."
+        ),
+    )
     parser.add_argument("--timeout", type=float, default=8.0, help="Maximum seconds to wait.")
     args = parser.parse_args(argv)
 
@@ -114,9 +124,22 @@ def main(argv: list[str] | None = None) -> int:
             prompt_pattern=args.prompt_pattern,
             expect_output=args.expect_output,
             timeout_seconds=args.timeout,
+            interactions=parse_interactions(args.interaction),
         )
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0 if report["status"] == "ok" else 1
+
+
+def parse_interactions(values: list[str]) -> list[tuple[str, str]]:
+    interactions: list[tuple[str, str]] = []
+    for value in values:
+        if "=>" not in value:
+            raise SystemExit("--interaction must use REGEX=>INPUT.")
+        pattern, input_text = value.split("=>", 1)
+        if not pattern:
+            raise SystemExit("--interaction requires a non-empty regex.")
+        interactions.append((pattern, input_text))
+    return interactions
 
 
 def parse_probe_commands(values: list[str]) -> list[tuple[str, list[str]]]:
@@ -199,11 +222,14 @@ def run_agent_smoke(
     prompt_pattern: str,
     expect_output: str,
     timeout_seconds: float,
+    interactions: list[tuple[str, str]] | None = None,
 ) -> dict:
+    scripted_interactions = interactions or []
     prompt_regex = re.compile(prompt_pattern, re.IGNORECASE)
     runner = PtyAgentRunner(command, cwd=str(workspace))
     prompt_text = ""
     response_text = ""
+    interaction_results: list[dict] = []
     prompt_detected = False
     input_injected = False
     killed = False
@@ -211,26 +237,67 @@ def run_agent_smoke(
     try:
         runner.start()
         started = True
-        prompt_text = wait_for_output(
-            runner,
-            lambda seen: bool(prompt_regex.search(seen)),
-            timeout_seconds=timeout_seconds,
-        )
-        prompt_detected = bool(prompt_regex.search(prompt_text))
-        if prompt_detected:
-            runner.write_input(_with_newline(approval_input))
-            input_injected = True
-            response_text = wait_for_output(
+        if scripted_interactions:
+            for pattern, input_text in scripted_interactions:
+                step_regex = re.compile(pattern, re.IGNORECASE)
+                step_output = wait_for_output(
+                    runner,
+                    lambda seen, regex=step_regex: bool(regex.search(seen)),
+                    timeout_seconds=timeout_seconds,
+                )
+                step_detected = bool(step_regex.search(step_output))
+                prompt_text += step_output
+                step_injected = False
+                if step_detected:
+                    runner.write_input(_with_newline(input_text))
+                    step_injected = True
+                    input_injected = True
+                interaction_results.append(
+                    {
+                        "pattern": pattern,
+                        "prompt_detected": step_detected,
+                        "input_injected": step_injected,
+                    }
+                )
+                if not step_detected:
+                    break
+            prompt_detected = all(step["prompt_detected"] for step in interaction_results)
+            if expect_output:
+                response_text = wait_for_output(
+                    runner,
+                    lambda seen: expect_output in seen,
+                    timeout_seconds=timeout_seconds,
+                )
+            else:
+                response_text = wait_for_output(
+                    runner,
+                    lambda seen: len(seen) > 0,
+                    timeout_seconds=min(timeout_seconds, 3.0),
+                )
+        else:
+            prompt_text = wait_for_output(
                 runner,
-                lambda seen: expect_output in seen if expect_output else len(seen) > 0,
-                timeout_seconds=min(timeout_seconds, 3.0),
+                lambda seen: bool(prompt_regex.search(seen)),
+                timeout_seconds=timeout_seconds,
             )
+            prompt_detected = bool(prompt_regex.search(prompt_text))
+            if prompt_detected:
+                runner.write_input(_with_newline(approval_input))
+                input_injected = True
+                response_text = wait_for_output(
+                    runner,
+                    lambda seen: expect_output in seen if expect_output else len(seen) > 0,
+                    timeout_seconds=min(timeout_seconds, 3.0),
+                )
     finally:
         runner.kill()
         killed = runner.process is None
 
     status = "ok" if started and prompt_detected and input_injected and killed else "error"
+    expected_seen_before_response = bool(expect_output and expect_output in prompt_text)
     if expect_output and expect_output not in response_text:
+        status = "error"
+    if expected_seen_before_response:
         status = "error"
     return build_report(
         status,
@@ -243,6 +310,8 @@ def run_agent_smoke(
         prompt_text=prompt_text,
         response_text=response_text,
         expect_output=expect_output,
+        expected_output_seen_before_response=expected_seen_before_response,
+        interactions=interaction_results,
     )
 
 
@@ -271,7 +340,10 @@ def build_report(
     prompt_text: str = "",
     response_text: str = "",
     expect_output: str = "",
+    expected_output_seen_before_response: bool = False,
+    interactions: list[dict] | None = None,
 ) -> dict:
+    interaction_results = interactions or []
     return {
         "status": status,
         "executed": executed,
@@ -285,6 +357,9 @@ def build_report(
         "prompt_text": prompt_text,
         "response_text": response_text,
         "expect_output": expect_output,
+        "expected_output_seen_before_response": expected_output_seen_before_response,
+        "interaction_count": len(interaction_results),
+        "interactions": interaction_results,
     }
 
 

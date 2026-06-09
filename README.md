@@ -224,7 +224,7 @@ The project has several layers of tests.
 
 Unit and integration tests:
 
-- `pytest -q`: last verified with `133 passed in 137.96s`.
+- `pytest -q`: last verified with `134 passed in 138.86s`.
 - `python -m pytest -q` from `mcp-cortex/`: last verified with `11 passed in 0.56s`.
 
 Smoke tests:
@@ -237,13 +237,14 @@ Smoke tests:
 - `python scripts/e2e_smoke.py`: verifies the aggregate local safety loop, including safe auto-approval, protected-path block, ambiguous auditor fallback, no-prompt protected write rollback, PTY prompt handling, trace export, and config profile behavior.
 - `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5`: verifies safe non-interactive version probes for Codex, Claude Code, and Gemini. This does not prove interactive agent behavior.
 - `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8`: verifies Sentinel can launch Claude Code in a disposable workspace, detect Claude's own startup trust prompt, inject the safe `No, exit` response, and kill the process. This proves startup prompt/control only; it does not prove model/tool confirmation behavior.
+- `python scripts/real_agent_smoke.py --interaction "REGEX=>INPUT" ...`: supports scripted multi-prompt disposable flows, such as startup trust followed by a tool confirmation. The harness now rejects expected-output matches that already appeared before the final response, so echoed prompts cannot count as successful tool output.
 
 Readiness matrix:
 
 - `python scripts/readiness_check.py`: default local mode is `partial`; the optional Claude trust-prompt item remains manual unless explicitly requested.
 - `python scripts/readiness_check.py --run-claude-trust-smoke`: last verified as `partial`, with `11 pass`, `3 manual`, `1 external_blocked`, and `0 fail`.
 - The remaining external block is the real MLX/Gemma auditor smoke in this managed session because Metal is unavailable.
-- The remaining real-agent manual item is a full model/tool confirmation command in a disposable workspace. The narrower Claude Code startup trust prompt is now proven.
+- The remaining real-agent manual item is a full model/tool confirmation command in a disposable workspace. The narrower Claude Code startup trust prompt and synthetic multi-prompt flows are now proven. A real Claude Code tool attempt trusted the temp workspace and typed the harmless prompt, but it did not reach a tool permission prompt before timeout.
 
 Release checks:
 
@@ -262,12 +263,13 @@ Useful drift:
 - Added package metadata, a `sentinel` CLI, and a readiness matrix.
 - Added a guarded real-agent harness and safe CLI metadata probes.
 - Added a bounded Claude Code trust-prompt smoke for real PTY startup/control evidence.
+- Added scripted multi-prompt interactions to the real-agent harness for startup-plus-tool-confirmation-shaped flows.
 - Added a richer TUI approval flow, approval queue, dedicated panel, and manual override input.
 
 Unresolved drift:
 
 - The plan expected real Gemma auditor verification, but this execution session has no Metal device. Dry-run auditor checks pass, but real model load is still externally blocked here.
-- The plan expected real local agent validation. PTY fixtures, CLI version probes, and a bounded Claude Code startup trust prompt pass, but a deliberately safe real Claude/Gemini/Codex model/tool confirmation run is still manual.
+- The plan expected real local agent validation. PTY fixtures, CLI version probes, a bounded Claude Code startup trust prompt, and synthetic multi-prompt flows pass, but a deliberately safe real Claude/Gemini/Codex model/tool confirmation run is still not complete.
 - MCP-Cortex is used as trace-oriented metadata support, not as a full MCP authorization proxy.
 
 ## Troubleshooting
@@ -332,6 +334,11 @@ python scripts/real_agent_smoke.py --dry-run
 python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5
 python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8
 python scripts/real_agent_smoke.py --agent-command "claude ." --approval-input n
+python scripts/real_agent_smoke.py \
+  --agent-command "python fixture_agent.py" \
+  --interaction "Trust workspace.*\\?=>y" \
+  --interaction "Run safe tool.*\\?=>n" \
+  --expect-output "answers:y,n"
 ```
 
 Run the local verification set:

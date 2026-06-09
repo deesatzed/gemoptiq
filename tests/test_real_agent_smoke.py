@@ -82,6 +82,45 @@ def test_real_agent_smoke_runs_supplied_command_in_disposable_workspace():
     assert "answer:n" in report["response_text"]
 
 
+def test_real_agent_smoke_runs_scripted_multi_prompt_interactions_in_order():
+    fixture_command = (
+        f"{sys.executable} -c \""
+        "import sys; "
+        "sys.stdout.write('Trust workspace [y/n]? '); sys.stdout.flush(); "
+        "trust=sys.stdin.readline().strip(); "
+        "sys.stdout.write('Run safe tool [y/n]? '); sys.stdout.flush(); "
+        "tool=sys.stdin.readline().strip(); "
+        "print('answers:' + trust + ',' + tool, flush=True)"
+        "\""
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/real_agent_smoke.py",
+            "--agent-command",
+            fixture_command,
+            "--interaction",
+            r"Trust workspace.*\?=>y",
+            "--interaction",
+            r"Run safe tool.*\?=>n",
+            "--expect-output",
+            "answers:y,n",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    report = json.loads(result.stdout)
+
+    assert report["status"] == "ok"
+    assert report["interaction_count"] == 2
+    assert report["interactions"][0]["input_injected"] is True
+    assert report["interactions"][1]["input_injected"] is True
+    assert "answers:y,n" in report["response_text"]
+
+
 def test_real_agent_smoke_probe_command_reports_noninteractive_agent_metadata():
     result = subprocess.run(
         [

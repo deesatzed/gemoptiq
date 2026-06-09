@@ -58,6 +58,8 @@
 - Added `ManualOverrideScreen`, a first-class Textual modal opened with `m`, for arbitrary manual allow override entry. Mounted tests cover submit, Escape cancel, and whitespace no-op behavior.
 - Added `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8`, a bounded opt-in Claude Code startup trust-prompt smoke that runs in a disposable workspace, detects Claude Code's own trust prompt, injects the safe `No, exit` response, and kills the process.
 - Added `python scripts/readiness_check.py --run-claude-trust-smoke` so the readiness matrix can include the bounded Claude Code startup prompt/control proof without treating it as full model/tool validation.
+- Added repeated `--interaction "REGEX=>INPUT"` support to `scripts/real_agent_smoke.py` for sequential prompt/input flows, such as workspace trust followed by a tool confirmation.
+- Tightened `scripts/real_agent_smoke.py` expected-output handling so a marker already present in prompt text cannot count as successful final output.
 
 ### Verification
 
@@ -259,12 +261,18 @@
 - `python -m py_compile scripts/real_agent_smoke.py src/sentinel/readiness.py`: exits 0.
 - `python scripts/readiness_check.py --run-claude-trust-smoke`: exits 0 with `status: partial`, `11 pass`, `3 manual`, and `1 external_blocked`.
 - `pytest -q`: `133 passed in 137.96s`.
+- `pytest -q tests/test_real_agent_smoke.py::test_real_agent_smoke_runs_scripted_multi_prompt_interactions_in_order`: initially failed on missing `--interaction`, then passed after adding scripted multi-step interactions.
+- `pytest -q tests/test_real_agent_smoke.py`: `6 passed in 0.72s`.
+- `python scripts/real_agent_smoke.py --agent-command "python -c ...two prompts..." --interaction "Trust workspace.*\\?=>y" --interaction "Run safe tool.*\\?=>n" --expect-output "answers:y,n"`: exits 0 with `interaction_count: 2`, both interactions detected/injected, and `process_killed: true`.
+- Real Claude Code model/tool attempt with `claude --bare --safe-mode --permission-mode default --tools Bash` in a disposable workspace: exits 1 after timeout. The harness detected workspace trust and typed the harmless encoded prompt, but did not reach a tool permission prompt or produce `SENTINEL_TOOL_OK`; `process_killed: true` and `expected_output_seen_before_response: false`.
+- `pytest -q`: `134 passed in 138.86s`.
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.50s`.
 
 ### Still Open
 
 - Confirm/review outcomes now log structured approval context, show a mounted-tested approval panel, and support FIFO queueing.
 - Command/tool extraction now handles basic JSON and Bash tool-call text, but still needs validation against real model/tool protocols.
-- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, and Claude Code startup trust-prompt control is proven; it still needs a safe full model/tool confirmation run against an actual Claude/Gemini/Codex command.
+- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, Claude Code startup trust-prompt control is proven, and synthetic multi-prompt flows are proven; it still needs a safe full model/tool confirmation run against an actual Claude/Gemini/Codex command.
 - CLI controls for arbitrary override patterns are implemented through repeated `--allow-path`; the TUI also has a first-class manual Textual input modal for arbitrary glob overrides.
 - Aggregate local E2E scenario coverage is implemented; full real-agent model/tool E2E validation remains unproven.
 - Readiness proof matrix is implemented; it intentionally reports partial until real auditor and full real-agent model/tool evidence are available.
