@@ -62,6 +62,7 @@
 - Tightened `scripts/real_agent_smoke.py` expected-output handling so a marker already present in prompt text cannot count as successful final output.
 - Added `python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30`, a bounded Codex exec smoke that verifies a harmless shell `command_execution` in an ephemeral temp workspace.
 - Added `python scripts/readiness_check.py --run-codex-exec-smoke` so the readiness matrix can include real Codex model/tool command execution evidence without treating it as interactive prompt control.
+- Fixed the Codex exec smoke to pass closed stdin (`input=""`) to `codex exec`, preventing readiness runs from hanging on inherited stdin after Codex prints `Reading additional input from stdin...`.
 
 ### Verification
 
@@ -271,9 +272,10 @@
 - `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.50s`.
 - `pytest -q tests/test_real_agent_smoke.py::test_real_agent_smoke_named_codex_exec_mode_parses_tool_output tests/test_readiness_check.py::test_readiness_report_can_run_named_codex_exec_smoke`: initially failed on missing `--codex-exec-smoke` and readiness flag, then passed after implementation with `2 passed in 0.02s`.
 - `python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30`: first failed under restricted sandbox with `failed to initialize in-process app-server client: Operation not permitted`; rerun with local app-server access exits 0 with `tool_output_detected: true`, `tool_exit_code: 0`, `event_count: 7`, and `proves_model_or_tool_behavior: true`.
-- `python scripts/readiness_check.py --run-claude-trust-smoke --run-codex-exec-smoke`: exits 0 with `status: partial`, `12 pass`, `3 manual`, and `1 external_blocked` when Codex exec has local app-server access.
+- `pytest -q tests/test_real_agent_smoke.py`: regression test now proves `run_codex_exec_smoke` passes `input=""` to `subprocess.run`.
+- `python scripts/readiness_check.py --run-claude-trust-smoke --run-codex-exec-smoke`: exits 0 in 14.756s with `status: partial`, `12 pass`, `3 manual`, and `1 external_blocked` when Codex exec has local app-server access. Current Codex version probe reports `codex-cli 0.138.0`.
 - Gemini CLI non-interactive check prompted `Opening authentication page in your browser. Do you want to continue? [Y/n]:`; the prompt was terminated rather than opening browser/auth flow.
-- `pytest -q`: `136 passed in 138.49s`.
+- `pytest -q`: `136 passed in 138.88s`.
 - `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.52s`.
 - `pytest -q tests/test_readme.py tests/test_readiness_check.py tests/test_real_agent_smoke.py`: `14 passed in 0.81s`.
 - `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `5 manual`, `1 external_blocked`, and `0 fail`.

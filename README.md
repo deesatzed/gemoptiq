@@ -225,7 +225,7 @@ The project has several layers of tests.
 
 Unit and integration tests:
 
-- `pytest -q`: last verified with `136 passed in 138.49s`.
+- `pytest -q`: last verified with `136 passed in 138.88s`.
 - `python -m pytest -q` from `mcp-cortex/`: last verified with `11 passed in 0.52s`.
 
 Smoke tests:

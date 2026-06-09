@@ -184,10 +184,11 @@ def test_real_agent_smoke_named_codex_exec_mode_parses_tool_output(monkeypatch, 
     module = load_real_agent_smoke_module()
     captured = {}
 
-    def fake_run(command, *, cwd, capture_output, text, timeout, check):
+    def fake_run(command, *, cwd, capture_output, text, timeout, check, input):
         captured["command"] = command
         captured["cwd"] = cwd
         captured["timeout"] = timeout
+        captured["input"] = input
         return SimpleNamespace(
             returncode=0,
             stdout="\n".join(
@@ -223,3 +224,4 @@ def test_real_agent_smoke_named_codex_exec_mode_parses_tool_output(monkeypatch, 
     assert captured["command"][:3] == ["codex", "exec", "--ephemeral"]
     assert "-C" in captured["command"]
     assert captured["timeout"] == 7
+    assert captured["input"] == ""

@@ -213,6 +213,7 @@ def run_codex_exec_smoke(workspace: Path, *, timeout_seconds: float) -> dict:
             cwd=str(workspace),
             capture_output=True,
             text=True,
+            input="",
             timeout=timeout_seconds,
             check=False,
         )
