@@ -1,7 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 from sentinel.cortex_bridge import CortexBridge
 from sentinel.policy import FileEffect, PolicyAction, PolicyDecision
+
+
+def require_local_mcp_cortex():
+    if not (Path.cwd() / "mcp-cortex" / "src" / "mcp_cortex").exists():
+        pytest.skip("local mcp-cortex package is not present in this checkout")
 
 
 def test_bridge_disabled_when_package_root_missing(tmp_path):
@@ -20,6 +27,7 @@ def test_bridge_disabled_when_package_root_missing(tmp_path):
 
 
 def test_bridge_records_policy_and_result_trace_when_available():
+    require_local_mcp_cortex()
     bridge = CortexBridge(project_root=Path.cwd())
 
     result = bridge.record_decision(
@@ -38,6 +46,7 @@ def test_bridge_records_policy_and_result_trace_when_available():
 
 
 def test_bridge_maps_protected_path_to_secret_read_effect():
+    require_local_mcp_cortex()
     bridge = CortexBridge(project_root=Path.cwd())
 
     result = bridge.record_decision(

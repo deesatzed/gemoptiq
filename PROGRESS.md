@@ -315,6 +315,8 @@
 - `python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60`: rerun exits 0 after the stricter control check with `interaction_count: 2`, both interactions detected/injected, `interactive_prompt_control: true`, `proves_model_or_tool_behavior: true`, and `SENTINEL_CODEX_TUI_OK`.
 - `pytest -q`: `142 passed in 128.80s`.
 - `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.56s`.
+- Independent fresh clone from `https://github.com/deesatzed/gemoptiq.git` initially exposed a publication gap: root pytest failed `tests/test_cortex_bridge.py` because the optional nested `mcp-cortex` gitlink was not populated in the clone. Updated those bridge-enabled assertions to skip when the local MCP-Cortex package is absent rather than treating optional dependency absence as a Sentinel regression.
+- `pytest -q tests/test_cortex_bridge.py`: `3 passed in 0.04s` in the populated working checkout.
 
 ### Still Open
 
