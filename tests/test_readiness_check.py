@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 from sentinel.readiness import classify_command_result
+from sentinel.readiness import build_report
 
 
 def test_readiness_check_no_run_reports_goal_status_without_external_actions():
@@ -68,3 +69,50 @@ def test_readiness_check_classifies_sandbox_denial_as_external_blocked():
 
     assert status == "external_blocked"
     assert "Run the listed command directly" in evidence
+
+
+def test_readiness_report_can_run_named_claude_trust_smoke(tmp_path):
+    commands = []
+
+    def fake_runner(command, cwd, project_root):
+        commands.append(command)
+        if "real_agent_smoke.py" in command and "--claude-trust-smoke" in command:
+            return {
+                "returncode": 0,
+                "output_tail": json.dumps(
+                    {
+                        "status": "ok",
+                        "executed": True,
+                        "claude_trust_smoke": True,
+                        "prompt_detected": True,
+                        "input_injected": True,
+                        "process_killed": True,
+                    }
+                ),
+            }
+        return {"returncode": 0, "output_tail": "ok"}
+
+    (tmp_path / "README.md").write_text(
+        "\n".join(
+            [
+                "## Quick Start",
+                "## Installation",
+                "## Configuration Reference",
+                "## Safety Boundary",
+                "## Troubleshooting",
+                "## Examples",
+            ]
+        )
+    )
+
+    report = build_report(
+        project_root=tmp_path,
+        run_local_smokes=False,
+        run_full_tests=False,
+        run_real_auditor=False,
+        run_claude_trust_smoke=True,
+        runner=fake_runner,
+    )
+
+    assert report["items"]["real_agent_claude_trust_smoke"]["status"] == "pass"
+    assert any("--claude-trust-smoke" in command for command in commands)

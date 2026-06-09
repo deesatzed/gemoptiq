@@ -6,17 +6,18 @@ Cortex Sentinel is currently a test-passing local supervision MVP for autonomous
 
 Verified working:
 
-- `pytest -q` from `/Volumes/WS4TB/gemOptq` passes with `131 passed`.
+- `pytest -q` from `/Volumes/WS4TB/gemOptq` passes with `133 passed`.
 - `python -m pytest -q` from `mcp-cortex/` passes with `11 passed`.
 - `venv/bin/python scripts/sentinel_smoke.py` passes and confirms the repo venv has `gemma4_unified -> gemma4`.
-- `python scripts/readiness_check.py` and `sentinel readiness` run the local disposable proof matrix; current local smoke mode reports `10 pass`, `3 manual`, and `1 external_blocked`.
+- `python scripts/readiness_check.py` and `sentinel readiness` run the local disposable proof matrix. Default local smoke mode leaves the optional Claude trust-prompt smoke manual; `python scripts/readiness_check.py --run-claude-trust-smoke` currently reports `11 pass`, `3 manual`, and `1 external_blocked`.
 - `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5` passes and confirms safe non-interactive version probes for installed Codex, Claude Code, and Gemini CLIs. This does not prove interactive prompt/control behavior.
+- `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8` passes and confirms Sentinel can launch Claude Code in a disposable workspace, detect Claude Code's own startup trust prompt, inject the safe `No, exit` response, and kill the process.
 - Sentinel can launch a child process, read line-buffered output, detect simple confirmation prompts, pause/resume/kill the process group, apply deterministic protected-path and auto-approve policy, pass ambiguous actions to the MLX auditor path, record rollback events in local traces, optionally record MCP-Cortex-style decision traces, and disclose at runtime that MCP-Cortex is trace-only rather than an authorization proxy.
 
 Not yet proven or missing:
 
 - `scripts/auditor_smoke.py` now exists and dry-run mode verifies structured smoke output, but real Gemma 4 model-load fails in this execution session because MLX reports no Metal device available.
-- PTY-style interaction is proven against a disposable synthetic agent fixture. Codex, Claude Code, and Gemini CLI executables are discoverable through safe non-interactive metadata probes, but real interactive Claude/Gemini/Codex prompt/control integration remains unproven.
+- PTY-style interaction is proven against a disposable synthetic agent fixture. Codex, Claude Code, and Gemini CLI executables are discoverable through safe non-interactive metadata probes. Claude Code startup trust-prompt control is proven in a disposable workspace, but full real Claude/Gemini/Codex model/tool confirmation behavior remains unproven.
 - Continuous filesystem enforcement is implemented for protected file effects and proven with a disposable no-prompt `.env` write smoke test that suspends the runner and rolls back the protected file.
 - Strict structured auditor verdicts resistant to prompt injection or stray `YES` text.
 - First-pass richer policy model with stable effect IDs, risk classes, secret/deploy/network hard blocks, and delete confirmation.
@@ -32,7 +33,7 @@ Not yet proven or missing:
 - Structured pending-approval context in the reasoning log.
 - Dedicated approval panel for pending decisions.
 - FIFO queue behavior for multiple pending approvals.
-- Mounted Textual approval-panel inspection and real-agent validation.
+- Mounted Textual approval-panel inspection and bounded Claude Code startup trust-prompt validation; full model/tool validation remains open.
 - Aggregate disposable E2E smoke covering core local scenarios.
 - Guarded opt-in real-agent smoke harness for disposable command validation.
 - Machine-readable readiness/proof matrix for current GOAL.md status.
@@ -55,9 +56,9 @@ The application must remain honest about its boundary: it is local supervision a
 ### GAP-002: Real Agent PTY Integration Is Partially Proven
 
 **Severity:** Reduced from High to Medium
-**Current state:** `PtyAgentRunner` now captures prompts without newline, injects input, prevents double-start, kills process groups, and can launch commands in a specified disposable working directory. `scripts/agent_integration_smoke.py` proves prompt detection, input injection, disposable file write, and kill behavior in a temporary workspace. `scripts/real_agent_smoke.py` provides a guarded opt-in harness for caller-supplied real-agent commands, requiring an explicit command and running it in a temporary workspace. It also has safe non-interactive CLI metadata probes; in this session, Codex, Claude Code, and Gemini version probes pass. Real interactive Claude/Gemini/Codex prompt/control behavior remains unproven until the harness is run with a deliberately safe real agent command.
+**Current state:** `PtyAgentRunner` now captures prompts without newline, injects input, prevents double-start, kills process groups, and can launch commands in a specified disposable working directory. `scripts/agent_integration_smoke.py` proves prompt detection, input injection, disposable file write, and kill behavior in a temporary workspace. `scripts/real_agent_smoke.py` provides a guarded opt-in harness for caller-supplied real-agent commands, requiring an explicit command and running it in a temporary workspace. It also has safe non-interactive CLI metadata probes; in this session, Codex, Claude Code, and Gemini version probes pass. `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8` proves Sentinel can drive Claude Code's startup trust prompt in a disposable workspace, inject the safe `No, exit` response, and kill the process. Full real Claude/Gemini/Codex model/tool confirmation behavior remains unproven until the harness is run with a deliberately safe command that exercises that flow.
 **Full-feature requirement:** Sentinel can run at least one real local agent command in a safe fixture workspace and detect/handle its confirmation prompts without corrupting terminal interaction.
-**Acceptance evidence:** `tests/test_pty_runner.py` passes; `venv/bin/python scripts/agent_integration_smoke.py` exits 0 with `prompt_detected`, `input_injected`, `file_written`, and `process_killed` all true. `tests/test_real_agent_smoke.py` proves the guarded harness dry-run, explicit-command requirement, disposable cwd execution, prompt detection, input injection, expected output detection, process kill, and non-interactive probe reporting. `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5` exits 0 with `pass_count: 3` for Codex, Claude Code, and Gemini. A real interactive Claude/Gemini/Codex command still needs to be run through that harness.
+**Acceptance evidence:** `tests/test_pty_runner.py` passes; `venv/bin/python scripts/agent_integration_smoke.py` exits 0 with `prompt_detected`, `input_injected`, `file_written`, and `process_killed` all true. `tests/test_real_agent_smoke.py` proves the guarded harness dry-run, explicit-command requirement, disposable cwd execution, prompt detection, input injection, expected output detection, process kill, non-interactive probe reporting, and named Claude trust-prompt smoke wiring. `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5` exits 0 with `pass_count: 3` for Codex, Claude Code, and Gemini. `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8` exits 0 with `prompt_detected`, `input_injected`, and `process_killed` true. A full model/tool confirmation Claude/Gemini/Codex command still needs to be run through that harness.
 
 ### GAP-003: Continuous Enforcement Is Implemented For Protected File Effects
 
@@ -83,7 +84,7 @@ The application must remain honest about its boundary: it is local supervision a
 ### GAP-006: Human Approval UX Has Minimal Tested State
 
 **Severity:** Reduced from High to Medium
-**Current state:** `SentinelTUI` now has a `PendingApproval` state and FIFO queue for review/confirm outcomes, logs a structured approval block with command, prompt, policy action/reason/risk, effect IDs, file effects, auditor result, queue depth, and controls, shows the same context in a dedicated approval panel, suspends the runner while waiting, advances queued approvals before resuming, clears the panel after approve/block when the queue is empty, and exposes explicit approve/block/override key actions. Auditor-allowed review decisions no longer silently auto-send `y`. A mounted Textual `run_test` inspection proves the real widget tree renders and clears the approval panel. Remaining work is real-agent validation.
+**Current state:** `SentinelTUI` now has a `PendingApproval` state and FIFO queue for review/confirm outcomes, logs a structured approval block with command, prompt, policy action/reason/risk, effect IDs, file effects, auditor result, queue depth, and controls, shows the same context in a dedicated approval panel, suspends the runner while waiting, advances queued approvals before resuming, clears the panel after approve/block when the queue is empty, and exposes explicit approve/block/override key actions. Auditor-allowed review decisions no longer silently auto-send `y`. A mounted Textual `run_test` inspection proves the real widget tree renders and clears the approval panel. The Claude Code startup trust prompt is now proven through the PTY harness; remaining work is full model/tool prompt validation.
 **Full-feature requirement:** The TUI should show current command, proposed action, file effects, policy reason, auditor verdict, risk class, and clear approve/block/resume/kill controls.
 **Acceptance evidence:** `tests/test_tui_policy_integration.py` proves block, allow, review, confirm, structured pending approval context, dedicated approval panel show/clear behavior in fake widgets and a mounted Textual app, FIFO queued pending approvals, approve pending, block pending, and no-op pending action transitions.
 
@@ -132,14 +133,14 @@ The application must remain honest about its boundary: it is local supervision a
 ### GAP-013: Local End-To-End Scenario Matrix Exists
 
 **Severity:** Reduced from Medium to Low-Medium
-**Current state:** `scripts/e2e_smoke.py` now runs a disposable aggregate E2E smoke covering safe auto-approval, protected-path block, ambiguous auditor fallback, no-prompt protected write enforcement, PTY prompt handling, trace export, and config profile behavior. Remaining work is real-agent validation against Claude/Gemini/Codex protocols.
+**Current state:** `scripts/e2e_smoke.py` now runs a disposable aggregate E2E smoke covering safe auto-approval, protected-path block, ambiguous auditor fallback, no-prompt protected write enforcement, PTY prompt handling, trace export, and config profile behavior. `scripts/real_agent_smoke.py --claude-trust-smoke` adds a bounded real Claude Code startup/control proof. Remaining work is full model/tool validation against Claude/Gemini/Codex protocols.
 **Full-feature requirement:** End-to-end tests should cover safe auto-approval, protected-path block, ambiguous auditor review, no-prompt protected write, PTY prompt handling, trace export, and config profiles.
 **Acceptance evidence:** `tests/test_e2e_smoke.py` passes; `python scripts/e2e_smoke.py` exits 0 with all scenario booleans true and `disposable_workspace: true`.
 
 ### GAP-014: User-Facing README Exists
 
 **Severity:** Reduced from Medium to Low
-**Current state:** `README.md` now includes quick start, installation, config reference, safety boundary, troubleshooting, and examples. Remaining work is to keep docs synchronized as the approval UI and real-agent validation improve.
+**Current state:** `README.md` now includes quick start, installation, config reference, safety boundary, troubleshooting, examples, Claude trust-prompt smoke usage, and explicit remaining limitations. Remaining work is to keep docs synchronized as model/tool validation improves.
 **Full-feature requirement:** Docs should include quick start, installation, config reference, safety model, known limitations, troubleshooting, and examples.
 **Acceptance evidence:** `tests/test_readme.py` asserts required sections and core commands are present.
 

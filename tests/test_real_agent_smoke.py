@@ -1,6 +1,19 @@
 import json
+import importlib.util
 import subprocess
 import sys
+from pathlib import Path
+
+
+def load_real_agent_smoke_module():
+    spec = importlib.util.spec_from_file_location(
+        "real_agent_smoke",
+        Path("scripts/real_agent_smoke.py"),
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_real_agent_smoke_dry_run_outputs_guarded_report():
@@ -92,3 +105,36 @@ def test_real_agent_smoke_probe_command_reports_noninteractive_agent_metadata():
     assert probe["status"] == "pass"
     assert probe["returncode"] == 0
     assert "fixture-agent 1.0" in probe["evidence"]
+
+
+def test_real_agent_smoke_named_claude_trust_mode_uses_disposable_safe_command(
+    monkeypatch,
+    capsys,
+):
+    module = load_real_agent_smoke_module()
+    captured = {}
+
+    def fake_run_agent_smoke(**kwargs):
+        captured.update(kwargs)
+        return {
+            "status": "ok",
+            "executed": True,
+            "disposable_workspace": True,
+            "prompt_detected": True,
+            "input_injected": True,
+            "process_killed": True,
+            "claude_trust_smoke": True,
+        }
+
+    monkeypatch.setattr(module, "run_agent_smoke", fake_run_agent_smoke)
+
+    exit_code = module.main(["--claude-trust-smoke", "--timeout", "3"])
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert report["status"] == "ok"
+    assert report["claude_trust_smoke"] is True
+    assert captured["command"] == module.CLAUDE_TRUST_COMMAND
+    assert captured["approval_input"] == "2"
+    assert "Quick.*safety.*check" in captured["prompt_pattern"]
+    assert captured["timeout_seconds"] == 3

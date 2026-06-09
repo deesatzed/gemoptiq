@@ -20,6 +20,10 @@ if str(SRC) not in sys.path:
 from sentinel.pty_runner import PtyAgentRunner
 
 DEFAULT_PROMPT_PATTERN = r"\?\s*$|\[y/n\]"
+CLAUDE_TRUST_COMMAND = "claude --bare --safe-mode --permission-mode plan --tools ''"
+CLAUDE_TRUST_PROMPT_PATTERN = (
+    r"Quick.*safety.*check|No,.*exit|Enter.*confirm|Accessing.*workspace"
+)
 DEFAULT_AGENT_PROBES = [
     ("codex", ["codex", "--version"]),
     ("claude", ["claude", "--version"]),
@@ -36,6 +40,14 @@ def main(argv: list[str] | None = None) -> int:
         "--probe-installed-agents",
         action="store_true",
         help="Run safe non-interactive version probes for known local agent CLIs.",
+    )
+    parser.add_argument(
+        "--claude-trust-smoke",
+        action="store_true",
+        help=(
+            "Run Claude Code's workspace trust prompt in a temp workspace, answer "
+            "'No, exit', and kill the process. Does not prove model/tool behavior."
+        ),
     )
     parser.add_argument(
         "--probe-agent-command",
@@ -74,6 +86,21 @@ def main(argv: list[str] | None = None) -> int:
         report = build_agent_probe_report(probes, timeout_seconds=args.timeout)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0 if report["status"] == "ok" else 1
+
+    if args.claude_trust_smoke:
+        with tempfile.TemporaryDirectory(prefix="sentinel-claude-trust-smoke-") as tmp:
+            report = run_agent_smoke(
+                command=CLAUDE_TRUST_COMMAND,
+                workspace=Path(tmp),
+                approval_input="2",
+                prompt_pattern=CLAUDE_TRUST_PROMPT_PATTERN,
+                expect_output="",
+                timeout_seconds=args.timeout,
+            )
+            report["claude_trust_smoke"] = True
+            report["proves_model_or_tool_behavior"] = False
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return 0 if report["status"] == "ok" else 1
 
     if not args.agent_command:
         parser.error("--agent-command is required unless --dry-run is used.")

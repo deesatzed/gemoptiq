@@ -51,6 +51,14 @@ def add_readiness_arguments(parser: argparse.ArgumentParser) -> None:
         help="Also run the root and MCP-Cortex pytest suites.",
     )
     parser.add_argument(
+        "--run-claude-trust-smoke",
+        action="store_true",
+        help=(
+            "Also run a bounded Claude Code workspace-trust prompt smoke in a "
+            "temporary workspace. Does not prove model/tool behavior."
+        ),
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit non-zero unless every item is pass.",
@@ -69,6 +77,7 @@ def run_readiness(
         run_local_smokes=not args.no_run,
         run_full_tests=args.include_tests and not args.no_run,
         run_real_auditor=args.run_real_auditor,
+        run_claude_trust_smoke=args.run_claude_trust_smoke and not args.no_run,
         runner=runner or run_command,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
@@ -85,6 +94,7 @@ def build_report(
     run_full_tests: bool,
     run_real_auditor: bool,
     runner: Runner,
+    run_claude_trust_smoke: bool = False,
 ) -> dict:
     items: dict[str, dict] = {}
 
@@ -156,9 +166,37 @@ def build_report(
             "they do not prove interactive agent prompt behavior."
         ),
     )
+    items["real_agent_claude_trust_smoke"] = command_item(
+        (
+            "Verify Sentinel can drive Claude Code's own workspace-trust prompt "
+            "inside a disposable workspace."
+        ),
+        [
+            "python",
+            "scripts/real_agent_smoke.py",
+            "--claude-trust-smoke",
+            "--timeout",
+            "8",
+        ],
+        run_claude_trust_smoke,
+        runner,
+        project_root=project_root,
+        manual_evidence=(
+            "Optional bounded real Claude Code PTY smoke; rerun with "
+            "`--run-claude-trust-smoke`. This proves startup prompt/control, "
+            "not model/tool confirmation behavior."
+        ),
+    )
     items["real_agent_command"] = manual_item(
-        "Run the guarded real-agent harness with a real Claude/Gemini/Codex command.",
-        "Requires a deliberately safe disposable command and confirmed account/credential state.",
+        (
+            "Run the guarded real-agent harness with a real Claude/Gemini/Codex "
+            "model/tool confirmation command."
+        ),
+        (
+            "Requires a deliberately safe disposable command and confirmed "
+            "account/credential state. The Claude trust-prompt smoke is a "
+            "narrower startup/control proof."
+        ),
         [
             "python",
             "scripts/real_agent_smoke.py",

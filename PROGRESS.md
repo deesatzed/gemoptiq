@@ -56,6 +56,8 @@
 - Fixed a race in `scripts/enforcement_smoke.py` where the script could read `last_decision` before the enforcement thread had populated rollback results, causing a false rollback failure in readiness.
 - Added `SentinelTUI.create_manual_allow_override(...)` for normalized arbitrary allow overrides with trace source `manual`, empty-pattern no-op tracing, and hard-block precedence preserved.
 - Added `ManualOverrideScreen`, a first-class Textual modal opened with `m`, for arbitrary manual allow override entry. Mounted tests cover submit, Escape cancel, and whitespace no-op behavior.
+- Added `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8`, a bounded opt-in Claude Code startup trust-prompt smoke that runs in a disposable workspace, detects Claude Code's own trust prompt, injects the safe `No, exit` response, and kills the process.
+- Added `python scripts/readiness_check.py --run-claude-trust-smoke` so the readiness matrix can include the bounded Claude Code startup prompt/control proof without treating it as full model/tool validation.
 
 ### Verification
 
@@ -251,15 +253,21 @@
 - `pytest -q`: `131 passed in 138.17s`
 - `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.56s`
 - `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `3 manual`, and `1 external_blocked`.
+- `venv/bin/python scripts/auditor_smoke.py`: still exits 1 with `No Metal device available`; this confirms the remaining real-auditor blocker is runtime Metal access, not model naming or structured parsing.
+- `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8`: exits 0 with `claude_trust_smoke: true`, `prompt_detected: true`, `input_injected: true`, and `process_killed: true` in a disposable workspace.
+- `pytest -q tests/test_real_agent_smoke.py tests/test_readiness_check.py`: `10 passed in 0.48s`.
+- `python -m py_compile scripts/real_agent_smoke.py src/sentinel/readiness.py`: exits 0.
+- `python scripts/readiness_check.py --run-claude-trust-smoke`: exits 0 with `status: partial`, `11 pass`, `3 manual`, and `1 external_blocked`.
+- `pytest -q`: `133 passed in 137.96s`.
 
 ### Still Open
 
 - Confirm/review outcomes now log structured approval context, show a mounted-tested approval panel, and support FIFO queueing.
-- Command/tool extraction now handles basic JSON and Bash tool-call text, but still needs validation against real agent protocols.
-- Guarded real-agent smoke harness exists and safe non-interactive CLI probes pass for Codex/Claude/Gemini; it still needs a safe interactive run against an actual Claude/Gemini/Codex command.
+- Command/tool extraction now handles basic JSON and Bash tool-call text, but still needs validation against real model/tool protocols.
+- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, and Claude Code startup trust-prompt control is proven; it still needs a safe full model/tool confirmation run against an actual Claude/Gemini/Codex command.
 - CLI controls for arbitrary override patterns are implemented through repeated `--allow-path`; the TUI also has a first-class manual Textual input modal for arbitrary glob overrides.
-- Aggregate local E2E scenario coverage is implemented; real-agent E2E validation remains unproven.
-- Readiness proof matrix is implemented; it intentionally reports partial until real auditor and real-agent evidence are available.
+- Aggregate local E2E scenario coverage is implemented; full real-agent model/tool E2E validation remains unproven.
+- Readiness proof matrix is implemented; it intentionally reports partial until real auditor and full real-agent model/tool evidence are available.
 - Formal release publishing/versioning beyond local wheel checks is not implemented yet.
 - Real Gemma model smoke remains blocked in this execution session by missing Metal access.
 
