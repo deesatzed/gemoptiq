@@ -1,0 +1,3 @@
+[submodule "mcp-cortex"]
+	path = mcp-cortex
+	url = https://github.com/deesatzed/mcp-cortex.git

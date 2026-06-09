@@ -1,0 +1,307 @@
+# PROGRESS.md
+
+## 2026-06-09
+
+### Completed
+
+- Added first-pass richer policy classification in `src/sentinel/policy.py`.
+- Added `CommandEffect` and `PolicyAction.CONFIRM`.
+- Added stable policy `risk` and `effect_ids` fields to `PolicyDecision`.
+- Policy now blocks secret-like file access, external network command effects, and production deploy command effects.
+- Policy now requires confirmation for delete effects.
+- Session traces now persist policy risk and effect IDs.
+- Added policy tests for safe docs edits, source edits, deletes, shell commands, network calls, secrets access, and production deploy attempts.
+- Added `docs/plans/2026-06-09-approval-ux-implementation.md`.
+- Added minimal TUI pending approval state for `review` and `confirm` outcomes.
+- Added explicit approve/block pending actions and keybindings.
+- Review outcomes with auditor approval now wait for user approval instead of auto-sending `y`.
+- Confirm outcomes suspend without invoking the auditor.
+- Added richer `SentinelConfig` fields for workspace root, ignore dirs, prompt patterns, model parameters, risk thresholds, policy profiles, trace storage, PTY mode, and override TTL.
+- Added strict config validation for unknown keys and bad types while preserving non-strict fallback behavior.
+- Wired TUI initialization to honor configured workspace root, trace directory, ignore dirs, prompt patterns, and model id.
+- Added `SessionOverrideStore` for scoped path overrides with TTL/expiry.
+- Wired `SentinelPolicy` to apply active overrides only after hard protected/secret/network/deploy blocks.
+- Wired configured risk thresholds into policy decisions for non-hard effects.
+- Added trace fields for policy decision `source` and `override_id`.
+- Added top-level `pyproject.toml` with package metadata and `sentinel` console script.
+- Replaced script-style `src/sentinel/main.py` with subcommands: `run`, `check-env`, and `trace replay`.
+- Added `README.md` with quick start, installation, config reference, safety boundary, troubleshooting, and examples.
+- Added a TUI startup safety warning that Sentinel is local supervision, not a hard sandbox.
+- Added policy risk, effect IDs, source, and override id to trace replay decision summaries.
+- Added human-readable trace replay output through `render_trace_text`, `scripts/trace_replay.py --format text`, and `sentinel trace replay --format text`.
+- Added TUI bindings/actions to create an allow override from the current pending approval's first file effect, list active overrides, and clear overrides.
+- Added trace user actions for override create/list/clear/no-op events.
+- Added prompt-time command-effect inference for obvious shell, external network, and production deploy commands.
+- Wired inferred command effects into TUI policy evaluation.
+- Added `scripts/release_check.py` for package metadata, README section, console script, and wheel-build checks.
+- Documented release check commands in `README.md`.
+- Added structured pending-approval context in `SentinelTUI`, including command, prompt, policy action/reason/risk, effect IDs, file effects, auditor result, and approve/block/override/kill controls.
+- Added a dedicated `#approval_panel` to the TUI, show it when a pending approval is created, and clear/hide it after approve or block.
+- Added first-pass structured command extraction from JSON `command`/`cmd` fields and common Bash tool-call output, preserving the actual command text in `CommandEffect`.
+- Added a mounted Textual `run_test` approval-panel inspection that verifies the real widget tree hides, renders, and clears `#approval_panel`.
+- Added FIFO queue behavior for multiple pending approvals; new approvals are queued without replacing the active approval, queue depth is shown, and approve/block advances queued approvals before resuming.
+- Added repeated `sentinel run --allow-path <pattern>` CLI support for arbitrary scoped temporary allow overrides, seeded into the TUI override store and recorded in traces on mount.
+- Documented `--allow-path` usage and hard-block precedence in `README.md`.
+- Added `scripts/e2e_smoke.py` for an aggregate disposable E2E report covering safe auto-approval, protected-path block, ambiguous auditor fallback, no-prompt enforcement, PTY prompt handling, trace export, and config profile behavior.
+- Added `scripts/real_agent_smoke.py`, a guarded opt-in harness for caller-supplied real-agent commands that runs only in a disposable temp workspace, requires an explicit command, defaults to `n` input, supports expected output markers, and kills the process group.
+- Added safe non-interactive installed-agent CLI probe mode to `scripts/real_agent_smoke.py`; it verifies Codex, Claude Code, and Gemini version commands without claiming interactive proof.
+- Added optional `cwd` support to `PtyAgentRunner` for disposable real-agent workspaces.
+- Added `scripts/readiness_check.py`, a JSON GOAL.md proof matrix reporter that runs local disposable smokes by default while leaving full test suites manual and the real auditor smoke externally blocked unless explicitly requested.
+- Added a runtime MCP-Cortex startup disclosure in the TUI clarifying that MCP-Cortex is trace-only metadata recording, not a tool-call authorization proxy.
+- Added protected-file rollback to `ContinuousEnforcer`; blocked created protected or built-in secret files are deleted, and modified/deleted protected or built-in secret files are restored from an in-memory baseline when available.
+- Tightened `scripts/enforcement_smoke.py` and `scripts/e2e_smoke.py` so no-prompt protected write evidence requires rollback, not just detection and suspension.
+- Added `enforcement.rollback` trace events and replay summaries so protected rollback actions are auditable without recording protected file contents.
+- Moved readiness proof matrix logic into `src/sentinel/readiness.py`, kept `scripts/readiness_check.py` as a wrapper, and exposed the report through `sentinel readiness`.
+- Added the installed-agent CLI probe to the readiness matrix as a separate evidence item from the manual real interactive agent command.
+- Fixed a race in `scripts/enforcement_smoke.py` where the script could read `last_decision` before the enforcement thread had populated rollback results, causing a false rollback failure in readiness.
+- Added `SentinelTUI.create_manual_allow_override(...)` for normalized arbitrary allow overrides with trace source `manual`, empty-pattern no-op tracing, and hard-block precedence preserved.
+- Added `ManualOverrideScreen`, a first-class Textual modal opened with `m`, for arbitrary manual allow override entry. Mounted tests cover submit, Escape cancel, and whitespace no-op behavior.
+
+### Verification
+
+- `pytest -q tests/test_policy.py`: `10 passed in 0.03s`
+- `pytest -q tests/test_session_trace.py`: initially failed on missing `policy.risk`, then passed after trace serialization update.
+- `pytest -q tests/test_policy.py tests/test_session_trace.py tests/test_trace_replay.py tests/test_trace_replay_script.py`: `16 passed in 0.09s`
+- `pytest -q tests/test_tui_policy_integration.py`: initially failed on missing pending-approval behavior, then passed after TUI update with `9 passed in 0.09s`
+- `pytest -q tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py`: `16 passed in 0.10s`
+- `pytest -q tests/test_sentinel_config.py`: initially failed on missing `ConfigError`, then passed after config update with `8 passed in 0.03s`
+- `pytest -q tests/test_tui_policy_integration.py::test_tui_uses_workspace_trace_prompt_and_ignore_config`: initially failed on hardcoded workspace root, then passed after TUI update.
+- `pytest -q tests/test_sentinel_config.py tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py`: `25 passed in 0.10s`
+- `pytest -q tests/test_policy.py tests/test_session_trace.py`: initially failed on missing `SessionOverrideStore`, then passed after override/trace update with `17 passed in 0.04s`
+- `pytest -q tests/test_policy.py tests/test_session_trace.py tests/test_trace_replay.py tests/test_trace_replay_script.py tests/test_cortex_bridge.py tests/test_tui_policy_integration.py tests/test_enforcer.py`: `36 passed in 0.21s`
+- `pytest -q`: `83 passed in 125.00s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.49s`
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0; reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`
+- `venv/bin/python scripts/auditor_smoke.py --dry-run`: exits 0 and prints structured dry-run report.
+- `venv/bin/python scripts/agent_integration_smoke.py`: exits 0 with prompt detection, input injection, disposable file write, and process kill true.
+- `venv/bin/python scripts/enforcement_smoke.py`: exits 0 with protected effect detection and runner suspension true.
+- `venv/bin/python scripts/trace_smoke.py`: exits 0 with required trace fields and stable digests true.
+- `git diff --check`: exits 0.
+- `venv/bin/python scripts/auditor_smoke.py`: exits 1 in this session with `No Metal device available`.
+- `pytest -q tests/test_cli.py`: initially failed on missing argv-aware CLI, env command, trace command, and `pyproject.toml`; then passed with `4 passed in 0.08s`.
+- `pytest -q tests/test_readme.py`: initially failed on missing `README.md`; then passed after README creation.
+- `pytest -q tests/test_readme.py tests/test_cli.py`: `5 passed in 0.08s`
+- `venv/bin/python -m pip install -e .`: exits 0 after network-enabled build dependency install; installs `cortex-sentinel-0.1.0` and `sentinel` script.
+- `venv/bin/sentinel --help`: exits 0 and lists `run`, `check-env`, and `trace`.
+- `venv/bin/sentinel run --help`: exits 0.
+- `venv/bin/sentinel check-env`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`.
+- `venv/bin/sentinel trace replay .sentinel/cli-test-traces/cli-smoke.jsonl`: exits 0 and reports `status: ok`.
+- `pytest -q tests/test_tui_fixes.py::TestTUIFixes::test_on_mount_starts_enforcer`: initially failed on missing startup safety boundary, then passed after TUI warning.
+- `pytest -q tests/test_tui_fixes.py tests/test_tui.py tests/test_tui_policy_integration.py tests/test_cli.py tests/test_readme.py`: `22 passed in 0.10s`
+- `pytest -q`: `88 passed in 134.75s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.48s`
+- `git diff --check`: exits 0 after packaging/docs changes.
+- `pytest -q tests/test_trace_replay.py tests/test_trace_replay_script.py tests/test_cli.py`: initially failed on missing `render_trace_text`, then passed after trace replay update with `9 passed in 0.12s`.
+- `venv/bin/sentinel trace replay --format text .sentinel/cli-test-traces/cli-smoke.jsonl`: exits 0 and prints human-readable summary.
+- `pytest -q tests/test_trace_replay.py tests/test_trace_replay_script.py tests/test_cli.py tests/test_readme.py`: `10 passed in 0.12s`
+- `pytest -q`: `90 passed in 134.85s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.47s`
+- `git diff --check`: exits 0 after trace replay changes.
+- `pytest -q tests/test_tui_policy_integration.py`: initially failed on missing override actions, then passed after TUI/store updates with `13 passed in 0.09s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_policy.py tests/test_session_trace.py tests/test_tui.py tests/test_tui_fixes.py`: `37 passed in 0.11s`
+- `pytest -q`: `93 passed in 134.91s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.46s`
+- `git diff --check`: exits 0 after override-control changes.
+- `pytest -q tests/test_tui_policy_integration.py`: initially failed on missing command-effect inference, then passed after TUI update with `15 passed in 0.09s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_policy.py tests/test_session_trace.py tests/test_tui.py tests/test_tui_fixes.py tests/test_trace_replay.py`: `42 passed in 0.11s`
+- `pytest -q`: `95 passed in 134.83s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.46s`
+- `git diff --check`: exits 0 after command-effect inference changes.
+- `pytest -q tests/test_release_check.py`: initially failed on missing `scripts/release_check.py`, then passed after implementation with `2 passed in 1.47s`.
+- `python scripts/release_check.py --skip-wheel`: exits 0 and reports package metadata/readme/console script OK.
+- `python scripts/release_check.py --wheel-dir /tmp/cortex-sentinel-release-check`: initially failed under restricted network while fetching build dependencies, then exited 0 with network approval and built `cortex_sentinel-0.1.0-py3-none-any.whl`.
+- `pytest -q tests/test_release_check.py tests/test_cli.py tests/test_readme.py`: `8 passed in 1.41s`
+- `pytest -q`: `97 passed in 135.99s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.48s`
+- `git diff --check`: exits 0 after release-check changes.
+- `pytest -q tests/test_tui_policy_integration.py::test_pending_approval_logs_structured_confirm_context tests/test_tui_policy_integration.py::test_pending_approval_logs_structured_auditor_context`: initially failed on missing structured approval context, then passed after renderer update with `2 passed in 0.08s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py`: `24 passed in 0.10s`
+- `pytest -q`: `99 passed in 135.94s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.49s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0.
+- `git diff --check`: exits 0 after approval-context changes.
+- `pytest -q tests/test_tui_policy_integration.py::test_pending_approval_shows_dedicated_approval_panel tests/test_tui_policy_integration.py::test_pending_approval_panel_clears_after_approve_or_block`: initially failed on missing dedicated approval panel behavior, then passed after panel lifecycle update with `2 passed in 0.08s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py`: `26 passed in 0.11s`
+- `pytest -q`: `101 passed in 125.88s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.47s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after approval-panel changes.
+- `git diff --check`: exits 0 after approval-panel changes.
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`.
+- `pytest -q tests/test_tui_policy_integration.py::test_current_command_effects_extracts_json_tool_command_from_history tests/test_tui_policy_integration.py::test_current_command_effects_extracts_bash_tool_command_from_history`: initially failed because the policy effect kept the prompt as command text, then passed after structured extraction update with `2 passed in 0.08s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py tests/test_policy.py`: `42 passed in 0.11s`
+- `pytest -q`: `103 passed in 125.84s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.47s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after command-extraction changes.
+- `git diff --check`: exits 0 after command-extraction changes.
+- `pytest -q tests/test_tui_policy_integration.py::test_mounted_approval_panel_renders_and_clears_with_real_widget_tree`: passed immediately with existing panel implementation, proving mounted Textual widget behavior with `1 passed in 0.27s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py`: `29 passed in 0.34s`
+- `pytest -q`: `104 passed in 136.47s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.47s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after mounted approval-panel inspection test.
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`.
+- `git diff --check`: exits 0 after mounted approval-panel inspection test.
+- `pytest -q tests/test_tui_policy_integration.py::test_second_pending_approval_is_queued_without_replacing_current tests/test_tui_policy_integration.py::test_approval_actions_advance_queue_before_resuming_agent`: initially failed because the second approval replaced the first and approval resumed despite another pending item, then passed after queue implementation with `2 passed in 0.08s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_tui.py tests/test_tui_fixes.py`: `31 passed in 0.33s`
+- `pytest -q`: `106 passed in 126.07s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.46s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after pending-approval queue changes.
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`.
+- `git diff --check`: exits 0 after pending-approval queue changes.
+- `pytest -q tests/test_cli.py::test_run_subcommand_launches_tui_with_config tests/test_cli.py::test_run_subcommand_passes_free_form_allow_path_overrides tests/test_tui_policy_integration.py::test_tui_seeds_cli_allow_path_override_into_policy tests/test_tui_policy_integration.py::test_tui_mount_logs_and_traces_cli_allow_path_override`: initially failed on missing CLI/TUI override plumbing, then passed after implementation with `4 passed in 0.08s`.
+- `pytest -q tests/test_cli.py tests/test_tui_policy_integration.py tests/test_policy.py tests/test_sentinel_config.py tests/test_readme.py`: `55 passed in 0.34s`
+- `pytest -q`: `109 passed in 136.15s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.47s`
+- `python -m py_compile src/sentinel/tui.py src/sentinel/main.py`: exits 0 after CLI override changes.
+- `venv/bin/sentinel run --help`: exits 0 and lists `--allow-path`.
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`.
+- `git diff --check`: exits 0 after CLI override changes.
+- `pytest -q tests/test_e2e_smoke.py`: initially failed on missing `scripts/e2e_smoke.py`, then passed after implementation with `1 passed in 0.48s`.
+- `python scripts/e2e_smoke.py`: exits 0 with `status: ok` and all scenario booleans true.
+- `pytest -q tests/test_e2e_smoke.py tests/test_agent_integration_smoke.py tests/test_enforcement_smoke.py tests/test_trace_smoke.py tests/test_sentinel_config.py tests/test_policy.py`: `26 passed in 0.62s`
+- `pytest -q tests/test_e2e_smoke.py tests/test_readme.py tests/test_agent_integration_smoke.py tests/test_enforcement_smoke.py tests/test_trace_smoke.py tests/test_sentinel_config.py tests/test_policy.py`: `27 passed in 0.64s`
+- `pytest -q`: `110 passed in 126.95s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.46s`
+- `python -m py_compile scripts/e2e_smoke.py`: exits 0.
+- `python scripts/e2e_smoke.py`: exits 0 with `status: ok` and all scenario booleans true.
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`.
+- `git diff --check`: exits 0 after E2E smoke changes.
+- `pytest -q tests/test_real_agent_smoke.py tests/test_pty_runner.py`: initially failed on missing `scripts/real_agent_smoke.py`, then passed after harness and `cwd` support with `6 passed in 1.12s`.
+- `python scripts/real_agent_smoke.py --dry-run`: exits 0 with `status: dry-run`, `requires_explicit_command: true`, and `executed: false`.
+- `python scripts/real_agent_smoke.py` without `--agent-command`: exits 2 with `--agent-command is required unless --dry-run is used.`
+- `python -m py_compile scripts/real_agent_smoke.py src/sentinel/pty_runner.py`: exits 0.
+- `pytest -q tests/test_real_agent_smoke.py tests/test_pty_runner.py tests/test_readme.py`: `7 passed in 1.11s`
+- `pytest -q`: `113 passed in 126.83s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.47s`
+- `python scripts/e2e_smoke.py`: exits 0 with `status: ok` and all scenario booleans true.
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0 and reports `mlx_lm is importable and gemma4_unified maps to gemma4`, `runner: ok`.
+- `git diff --check`: exits 0 after real-agent smoke harness status updates.
+- `pytest -q tests/test_readiness_check.py`: `2 passed in 0.08s`
+- `python -m py_compile scripts/readiness_check.py`: exits 0.
+- `python scripts/readiness_check.py --no-run`: exits 0 with `status: partial`, `1 pass`, `11 manual`, and `1 external_blocked`.
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`.
+- `pytest -q tests/test_readiness_check.py tests/test_readme.py tests/test_release_check.py`: `5 passed in 1.37s`
+- `pytest -q`: `115 passed in 136.97s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.50s`
+- `venv/bin/python scripts/auditor_smoke.py`: exits 1 in this session with `[metal::load_device] No Metal device available`; structured error report still identifies `mlx-community/gemma-4-12B-it-OptiQ-4bit`.
+- `pytest -q tests/test_readiness_check.py`: `4 passed in 0.13s`
+- `python scripts/readiness_check.py --include-tests`: exits 0 with `status: partial`, `10 pass`, `1 manual`, and `2 external_blocked`; root pytest inside the readiness subprocess is classified as externally blocked because this managed session denies nested `ps` subprocess execution, while direct `pytest -q` above is authoritative.
+- `pytest -q tests/test_readiness_check.py tests/test_readme.py tests/test_release_check.py`: `7 passed in 1.45s`
+- `pytest -q`: `117 passed in 136.91s`
+- `pytest -q tests/test_tui_fixes.py tests/test_tui.py tests/test_tui_policy_integration.py`: `33 passed in 0.34s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after MCP-Cortex runtime disclosure.
+- `pytest -q tests/test_tui_fixes.py tests/test_tui.py tests/test_tui_policy_integration.py tests/test_readme.py`: `34 passed in 0.33s`
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`.
+- `git diff --check`: exits 0 after MCP-Cortex runtime disclosure.
+- `pytest -q`: `117 passed in 126.96s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.49s`
+- `pytest -q tests/test_enforcer.py tests/test_effects.py tests/test_enforcement_smoke.py`: `10 passed in 0.09s`
+- `venv/bin/python scripts/enforcement_smoke.py`: exits 0 with `protected_effect_detected`, `runner_suspended`, and `rollback_performed` true, `protected_file_present` false, and rollback result `deleted-created-file`.
+- `python scripts/e2e_smoke.py`: exits 0 with `status: ok`; the no-prompt protected write check now requires rollback evidence.
+- `pytest -q tests/test_e2e_smoke.py tests/test_readiness_check.py`: `5 passed in 0.58s`
+- `pytest -q tests/test_enforcer.py tests/test_effects.py tests/test_enforcement_smoke.py tests/test_e2e_smoke.py tests/test_readiness_check.py tests/test_readme.py`: `17 passed in 0.69s`
+- `python -m py_compile src/sentinel/enforcer.py src/sentinel/effects.py scripts/enforcement_smoke.py scripts/e2e_smoke.py`: exits 0.
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`; enforcement smoke evidence includes rollback.
+- `git diff --check`: exits 0 after protected rollback changes.
+- `pytest -q`: `120 passed in 136.88s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.50s`
+- `pytest -q tests/test_session_trace.py tests/test_trace_replay.py tests/test_trace_replay_script.py tests/test_trace_smoke.py`: `9 passed in 0.15s`
+- `venv/bin/python scripts/trace_smoke.py`: exits 0 with `has_rollback_event` true and `event_count: 6`.
+- `pytest -q tests/test_session_trace.py tests/test_trace_replay.py tests/test_trace_replay_script.py tests/test_trace_smoke.py tests/test_readme.py tests/test_enforcer.py tests/test_enforcement_smoke.py`: `17 passed in 0.28s`
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`; trace smoke evidence includes `has_rollback_event: true`.
+- `git diff --check`: exits 0 after rollback traceability changes.
+- `pytest -q`: `121 passed in 136.94s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.51s`
+- `pytest -q tests/test_cli.py tests/test_readiness_check.py tests/test_release_check.py tests/test_readme.py`: `15 passed in 1.70s`
+- `python scripts/readiness_check.py --no-run`: exits 0 with `status: partial`, `1 pass`, `11 manual`, and `1 external_blocked`.
+- `venv/bin/sentinel readiness --no-run`: exits 0 with `status: partial`, `1 pass`, `11 manual`, and `1 external_blocked`.
+- `python -m py_compile src/sentinel/readiness.py src/sentinel/main.py scripts/readiness_check.py`: exits 0.
+- `venv/bin/sentinel --help`: exits 0 and lists `readiness`.
+- `venv/bin/sentinel readiness`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`.
+- `python scripts/release_check.py --skip-wheel`: exits 0 after documenting `sentinel readiness`.
+- `git diff --check`: exits 0 after packaged readiness CLI changes.
+- `pytest -q`: `123 passed in 127.01s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.52s`
+- `pytest -q tests/test_tui_policy_integration.py`: initially failed on missing manual override helper/source metadata, then passed after implementation with `29 passed in 0.33s`.
+- `pytest -q tests/test_tui_policy_integration.py tests/test_policy.py tests/test_session_trace.py tests/test_readme.py`: `48 passed in 0.36s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after manual override helper changes.
+- `git diff --check`: exits 0 after manual override helper changes.
+- `pytest -q`: `126 passed in 127.11s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.49s`
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`.
+- `venv/bin/sentinel readiness`: exits 0 with `status: partial`, `9 pass`, `3 manual`, and `1 external_blocked`.
+- `pytest -q tests/test_real_agent_smoke.py`: initially failed on missing `--probe-agent-command`, then passed after adding non-interactive probe mode with `4 passed in 0.36s`.
+- `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5`: exits 0 with `pass_count: 3`; Codex reports `codex-cli 0.137.0`, Claude reports `2.1.169 (Claude Code)`, and Gemini reports `0.45.2`. The report sets `proves_interactive_behavior: false`.
+- `pytest -q tests/test_readiness_check.py`: initially failed on missing `real_agent_cli_probe`, then passed after adding the readiness matrix item.
+- `pytest -q tests/test_readiness_check.py tests/test_real_agent_smoke.py`: `8 passed in 0.47s`
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `3 manual`, and `1 external_blocked`; `real_agent_cli_probe` passes and `real_agent_command` remains manual.
+- `venv/bin/sentinel readiness`: initially reported `1 fail` because `enforcement_smoke` observed the block before rollback results were populated; after adding an explicit wait for rollback results, it exits 0 with `status: partial`, `10 pass`, `3 manual`, and `1 external_blocked`.
+- `pytest -q tests/test_enforcement_smoke.py tests/test_enforcer.py`: `8 passed in 0.20s`
+- `venv/bin/python scripts/enforcement_smoke.py`: exits 0 with `rollback_performed: true` and `protected_file_present: false`.
+- `pytest -q tests/test_real_agent_smoke.py tests/test_readiness_check.py tests/test_readme.py tests/test_cli.py`: `17 passed in 0.52s`
+- `python -m py_compile scripts/real_agent_smoke.py src/sentinel/readiness.py`: exits 0.
+- `git diff --check`: exits 0 after real-agent probe and enforcement-smoke race changes.
+- `pytest -q`: `128 passed in 137.05s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.52s`
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `3 manual`, and `1 external_blocked`.
+- `pytest -q tests/test_tui_policy_integration.py::test_mounted_manual_override_modal_creates_trace_visible_override`: initially failed on missing `action_manual_override`, then passed after adding the modal/action and querying the active modal screen.
+- `pytest -q tests/test_tui_policy_integration.py`: `32 passed in 1.24s`
+- `pytest -q tests/test_tui_policy_integration.py tests/test_readme.py tests/test_cli.py`: `41 passed in 1.18s`
+- `python -m py_compile src/sentinel/tui.py`: exits 0 after manual override modal changes.
+- `git diff --check`: exits 0 after README/manual override status updates.
+- `pytest -q`: `131 passed in 138.17s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.56s`
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `3 manual`, and `1 external_blocked`.
+
+### Still Open
+
+- Confirm/review outcomes now log structured approval context, show a mounted-tested approval panel, and support FIFO queueing.
+- Command/tool extraction now handles basic JSON and Bash tool-call text, but still needs validation against real agent protocols.
+- Guarded real-agent smoke harness exists and safe non-interactive CLI probes pass for Codex/Claude/Gemini; it still needs a safe interactive run against an actual Claude/Gemini/Codex command.
+- CLI controls for arbitrary override patterns are implemented through repeated `--allow-path`; the TUI also has a first-class manual Textual input modal for arbitrary glob overrides.
+- Aggregate local E2E scenario coverage is implemented; real-agent E2E validation remains unproven.
+- Readiness proof matrix is implemented; it intentionally reports partial until real auditor and real-agent evidence are available.
+- Formal release publishing/versioning beyond local wheel checks is not implemented yet.
+- Real Gemma model smoke remains blocked in this execution session by missing Metal access.
+
+## 2026-06-08
+
+### Completed
+
+- Added structured auditor result parsing in `src/sentinel/auditor.py`.
+- Preserved the existing `(bool, reason)` `audit_intent()` API for TUI compatibility.
+- Added tests proving:
+  - structured `allow` approves,
+  - structured `block` blocks,
+  - structured `review` blocks via tuple API,
+  - free-text `YES` does not approve,
+  - malformed output blocks,
+  - MLX import/load failures do not escape the auditor constructor.
+- Added `scripts/auditor_smoke.py`.
+- Added dry-run smoke coverage for structured auditor reporting.
+- Added `PtyAgentRunner` for terminal-style agent interaction.
+- Added PTY tests proving prompt capture without newline, input injection, double-start protection, and process-group kill.
+- Added `scripts/agent_integration_smoke.py` using a disposable synthetic agent workspace.
+- Added `ContinuousEnforcer` for polling file effects and suspending on protected-path policy blocks.
+- Wired `ContinuousEnforcer` into `SentinelTUI` mount/unmount lifecycle.
+- Added `scripts/enforcement_smoke.py` using a disposable no-prompt `.env` write fixture.
+- Added `SessionTraceStore` for local JSONL session traces with stable digests.
+- Wired `SentinelTUI` to record session start, process lifecycle, decisions, and user actions.
+- Added `scripts/trace_smoke.py` to prove required persisted trace fields.
+- Added trace replay summary helper and `scripts/trace_replay.py`.
+
+### Verification
+
+- `pytest -q`: `64 passed in 134.39s`
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.53s`
+- `venv/bin/python scripts/sentinel_smoke.py`: exits 0, confirms repo venv mapping and runner smoke.
+- `venv/bin/python scripts/auditor_smoke.py --dry-run`: exits 0 and prints structured JSON report.
+- `venv/bin/python scripts/agent_integration_smoke.py`: exits 0, confirms prompt detection, input injection, disposable file write, and process kill.
+- `venv/bin/python scripts/enforcement_smoke.py`: exits 0, confirms no-prompt `.env` write detection and runner suspension.
+- `venv/bin/python scripts/trace_smoke.py`: exits 0, confirms command metadata, prompt text, file effects, policy decision, auditor verdict, user action, process lifecycle events, and stable digests.
+- `scripts/trace_replay.py <trace.jsonl>` is covered by tests and emits summary JSON with digest validation.
+
+### Blocked / Needs External Runtime
+
+- `venv/bin/python scripts/auditor_smoke.py` real model mode fails in this execution session with `No Metal device available`.
+- This is not a repo venv mapping issue; `sentinel_smoke.py` confirms `gemma4_unified -> gemma4` is present.
+- Next step is to rerun `venv/bin/python scripts/auditor_smoke.py` in a local Metal-capable terminal/session, then proceed to richer policy model, approval UX, config profiles, packaging, and user-facing docs.

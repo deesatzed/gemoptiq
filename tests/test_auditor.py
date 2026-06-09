@@ -7,7 +7,7 @@ import os
 mock_mlx_lm = MagicMock()
 sys.modules['mlx_lm'] = mock_mlx_lm
 
-from src.sentinel.auditor import Auditor
+from sentinel.auditor import AuditResult, Auditor
 
 class TestAuditor(unittest.TestCase):
     def setUp(self):
@@ -31,49 +31,78 @@ class TestAuditor(unittest.TestCase):
         self.assertFalse(verdict)
         self.assertEqual(reasoning, "Model or tokenizer not initialized.")
 
-    def test_audit_intent_yes(self):
+    def test_import_failure_does_not_escape_constructor(self):
+        with patch("sentinel.auditor.importlib.import_module", side_effect=RuntimeError("No Metal device available")):
+            auditor = Auditor("test-model")
+
+        self.assertIsNone(auditor.model)
+        self.assertIsNone(auditor.tokenizer)
+
+    def test_audit_intent_structured_allow(self):
         # Setup mock response
         self.auditor.tokenizer.apply_chat_template.return_value = "templated prompt"
-        mock_mlx_lm.generate.return_value = "YES. The action is safe."
+        mock_mlx_lm.generate.return_value = (
+            '{"verdict":"allow","risk":"green","reason":"The action is safe."}'
+        )
         
         verdict, reasoning = self.auditor.audit_intent("Clean the house", "The floor was mopped.")
         
         self.assertTrue(verdict)
-        self.assertEqual(reasoning, "YES. The action is safe.")
+        self.assertEqual(reasoning, "The action is safe.")
         mock_mlx_lm.generate.assert_called_once()
         args, kwargs = mock_mlx_lm.generate.call_args
-        self.assertEqual(kwargs['max_tokens'], 200)
+        self.assertEqual(kwargs['max_tokens'], 400)
         self.assertEqual(kwargs['verbose'], False)
 
-    def test_audit_intent_no(self):
+    def test_audit_intent_structured_block(self):
         # Setup mock response
         self.auditor.tokenizer.apply_chat_template.return_value = "templated prompt"
-        mock_mlx_lm.generate.return_value = "NO. Deleting the root directory is unsafe."
+        mock_mlx_lm.generate.return_value = (
+            '{"verdict":"block","risk":"red","reason":"Deleting the root directory is unsafe."}'
+        )
         
         verdict, reasoning = self.auditor.audit_intent("Update configuration", "rm -rf /")
         
         self.assertFalse(verdict)
-        self.assertEqual(reasoning, "NO. Deleting the root directory is unsafe.")
+        self.assertEqual(reasoning, "Deleting the root directory is unsafe.")
 
-    def test_audit_intent_lowercase_yes(self):
-        # Setup mock response
+    def test_audit_intent_structured_review_blocks_for_tuple_api(self):
         self.auditor.tokenizer.apply_chat_template.return_value = "templated prompt"
-        mock_mlx_lm.generate.return_value = "yes, it looks good."
+        mock_mlx_lm.generate.return_value = (
+            '{"verdict":"review","risk":"yellow","reason":"Needs human review."}'
+        )
         
         verdict, reasoning = self.auditor.audit_intent("Test", "Action")
         
-        self.assertTrue(verdict)
-        self.assertEqual(reasoning, "yes, it looks good.")
+        self.assertFalse(verdict)
+        self.assertEqual(reasoning, "Needs human review.")
 
-    def test_audit_intent_regex_robustness(self):
-        # Setup mock response where YES is not at the start
+    def test_free_text_yes_does_not_approve(self):
         self.auditor.tokenizer.apply_chat_template.return_value = "templated prompt"
-        mock_mlx_lm.generate.return_value = "Based on the analysis, the verdict is YES because it matches."
+        mock_mlx_lm.generate.return_value = "Based on analysis, YES appears in the reasoning."
         
         verdict, reasoning = self.auditor.audit_intent("Test", "Action")
         
-        self.assertTrue(verdict)
-        self.assertEqual(reasoning, "Based on the analysis, the verdict is YES because it matches.")
+        self.assertFalse(verdict)
+        self.assertIn("Could not parse structured auditor response", reasoning)
+
+    def test_audit_intent_result_returns_structured_result(self):
+        self.auditor.tokenizer.apply_chat_template.return_value = "templated prompt"
+        mock_mlx_lm.generate.return_value = (
+            'prefix {"verdict":"allow","risk":"green","reason":"Safe docs edit."} suffix'
+        )
+
+        result = self.auditor.audit_intent_result("Edit docs", "modified: docs/a.md")
+
+        self.assertEqual(
+            result,
+            AuditResult(
+                verdict="allow",
+                risk="green",
+                reason="Safe docs edit.",
+                raw_response='prefix {"verdict":"allow","risk":"green","reason":"Safe docs edit."} suffix',
+            ),
+        )
 
     def test_audit_intent_generate_failure(self):
         # Setup mock failure
@@ -93,7 +122,7 @@ class TestAuditor(unittest.TestCase):
         verdict, reasoning = self.auditor.audit_intent("Test", "Action")
         
         self.assertFalse(verdict)
-        self.assertIn("Could not determine verdict", reasoning)
+        self.assertIn("Could not parse structured auditor response", reasoning)
 
 if __name__ == '__main__':
     unittest.main()

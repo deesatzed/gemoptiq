@@ -33,6 +33,8 @@ class TestTUIFixes(unittest.TestCase):
 
     def test_action_quit_calls_exit(self):
         self.app.runner = MagicMock()
+        self.app.enforcer = MagicMock()
+        self.app.trace_store = MagicMock()
         self.app.exit = MagicMock()
         
         import asyncio
@@ -40,19 +42,60 @@ class TestTUIFixes(unittest.TestCase):
         asyncio.set_event_loop(loop)
         loop.run_until_complete(self.app.action_quit())
         
+        self.app.trace_store.record_user_action.assert_called_once_with("quit")
+        self.app.enforcer.stop.assert_called_once()
         self.app.runner.kill.assert_called_once()
         self.app.exit.assert_called_once()
         loop.close()
 
     def test_on_unmount_calls_kill(self):
         self.app.runner = MagicMock()
+        self.app.enforcer = MagicMock()
+        self.app.trace_store = MagicMock()
         
         import asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(self.app.on_unmount())
         
+        self.app.enforcer.stop.assert_called_once()
+        self.app.trace_store.record_process_event.assert_called_once()
         self.app.runner.kill.assert_called_once()
+        loop.close()
+
+    def test_on_mount_starts_enforcer(self):
+        self.app.runner = MagicMock()
+        self.app.runner.process = MagicMock()
+        self.app.runner.process.pid = 123
+        self.app.enforcer = MagicMock()
+        self.app.trace_store = MagicMock()
+        self.app.query_one = MagicMock()
+        self.app.set_interval = MagicMock()
+
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.app.on_mount())
+
+        self.app.enforcer.start.assert_called_once()
+        self.app.runner.start.assert_called_once()
+        self.app.trace_store.record_session_started.assert_called_once()
+        self.app.trace_store.record_process_event.assert_called_once_with(
+            "process.started",
+            {"pid": 123},
+        )
+        written_lines = [
+            call.args[0]
+            for call in self.app.query_one.return_value.write_line.call_args_list
+        ]
+        self.assertTrue(
+            any("local supervision" in line for line in written_lines),
+            "TUI startup should surface the local supervision safety boundary",
+        )
+        self.assertTrue(
+            any("MCP-Cortex" in line and "trace-only" in line for line in written_lines),
+            "TUI startup should disclose that MCP-Cortex is trace-only",
+        )
         loop.close()
 
 if __name__ == '__main__':

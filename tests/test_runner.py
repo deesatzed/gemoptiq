@@ -3,7 +3,7 @@ import pytest
 import os
 import signal
 import threading
-from src.sentinel.runner import AgentRunner
+from sentinel.runner import AgentRunner
 
 def test_runner_basic_output():
     runner = AgentRunner("echo 'hello world'")
