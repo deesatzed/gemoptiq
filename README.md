@@ -147,7 +147,7 @@ sentinel trace replay .sentinel/traces/<session>.jsonl
 sentinel trace replay --format text .sentinel/traces/<session>.jsonl
 ```
 
-The local Gemma auditor uses `mlx_lm` with `mlx-community/gemma-4-12B-it-OptiQ-4bit`. The repo virtual environment has been verified to contain the needed `gemma4_unified -> gemma4` mapping, but real model loading requires a macOS session with Metal access.
+The local Gemma auditor uses `mlx_lm` with `mlx-community/gemma-4-12B-it-OptiQ-4bit`. The repo virtual environment has been verified to contain the needed `gemma4_unified -> gemma4` mapping, and the real auditor smoke passes when run from a macOS session with Metal access.
 
 ## Configuration Reference
 
@@ -214,9 +214,10 @@ Important limitations:
 
 - Continuous enforcement is polling-based. It detects, suspends, and can roll back protected-path effects after they appear; it is not pre-write OS sandboxing.
 - Real Claude Code startup trust-prompt control is proven in a disposable workspace with `--claude-trust-smoke`. Real Codex non-interactive model/tool command execution is proven with `--codex-exec-smoke`. Full interactive Claude/Gemini/Codex tool-confirmation behavior is not yet proven.
+- The PTY runner answers basic terminal queries, including a cursor-position query fixture, but it is not yet a complete full-screen terminal emulator. A Codex full-screen TUI attempt still did not progress past startup terminal-control sequences.
 - `scripts/real_agent_smoke.py` is opt-in and only as safe as the command you pass to it. Use disposable workspaces and avoid secrets.
 - MCP-Cortex integration is trace-oriented in this app version. It records decisions; it does not proxy or authorize real MCP traffic.
-- The real Gemma auditor smoke requires local Metal access.
+- The real Gemma auditor smoke requires local Metal access; restricted or non-Metal sessions can still fail with no Metal device.
 - Do not pass secrets, credentials, PHI, private keys, or unnecessary sensitive data into prompts or traces.
 
 ## Testing Done And Current Results
@@ -225,13 +226,14 @@ The project has several layers of tests.
 
 Unit and integration tests:
 
-- `pytest -q`: last verified with `136 passed in 138.88s`.
+- `pytest -q`: last verified with `137 passed in 139.06s`.
 - `python -m pytest -q` from `mcp-cortex/`: last verified with `11 passed in 0.52s`.
 
 Smoke tests:
 
 - `venv/bin/python scripts/sentinel_smoke.py`: verifies the repo venv can import `mlx_lm` and has the `gemma4_unified -> gemma4` mapping.
 - `venv/bin/python scripts/auditor_smoke.py --dry-run`: verifies structured auditor output without loading the real model.
+- `venv/bin/python scripts/auditor_smoke.py`: passes when local Metal access is available; the verified run loaded `mlx-community/gemma-4-12B-it-OptiQ-4bit`, returned a structured `allow` / `green` verdict, and reported load/audit timing.
 - `venv/bin/python scripts/agent_integration_smoke.py`: verifies PTY prompt detection, input injection, disposable file write, and process kill.
 - `venv/bin/python scripts/enforcement_smoke.py`: verifies a no-prompt `.env` write is detected, the runner is suspended, rollback is performed, and the protected file is absent after rollback.
 - `venv/bin/python scripts/trace_smoke.py`: verifies trace fields and stable digests.
@@ -240,13 +242,13 @@ Smoke tests:
 - `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8`: verifies Sentinel can launch Claude Code in a disposable workspace, detect Claude's own startup trust prompt, inject the safe `No, exit` response, and kill the process. This proves startup prompt/control only; it does not prove model/tool confirmation behavior.
 - `python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30`: verifies Codex can run a harmless shell `command_execution` in an ephemeral temp workspace and produce `SENTINEL_CODEX_OK`. This proves real model/tool command execution, not interactive prompt control. In this managed session, it needs local app-server access outside the restricted sandbox.
 - `python scripts/real_agent_smoke.py --interaction "REGEX=>INPUT" ...`: supports scripted multi-prompt disposable flows, such as startup trust followed by a tool confirmation. The harness now rejects expected-output matches that already appeared before the final response, so echoed prompts cannot count as successful tool output.
+- `pytest -q tests/test_pty_runner.py`: includes a terminal cursor-position query fixture proving the runner can answer a basic `ESC[6n` query.
 
 Readiness matrix:
 
-- `python scripts/readiness_check.py`: default local mode is `partial`, with `10 pass`, `5 manual`, `1 external_blocked`, and `0 fail`. Optional real-agent smokes remain manual unless explicitly requested.
-- `python scripts/readiness_check.py --run-claude-trust-smoke --run-codex-exec-smoke`: last verified as `partial`, with `12 pass`, `3 manual`, `1 external_blocked`, and `0 fail` when Codex exec has local app-server access.
-- The remaining external block is the real MLX/Gemma auditor smoke in this managed session because Metal is unavailable.
-- The remaining real-agent manual item is a full interactive tool-confirmation command in a disposable workspace. Claude Code startup trust, Codex non-interactive model/tool execution, and synthetic multi-prompt flows are now proven. A real Claude Code tool attempt trusted the temp workspace and typed the harmless prompt, but it did not reach a tool permission prompt before timeout. Gemini prompted for browser authentication in this session.
+- `python scripts/readiness_check.py`: default local mode is `partial`, with `10 pass`, `5 manual`, `1 external_blocked`, and `0 fail`. The real auditor remains opt-in by default because it requires local Metal access.
+- `python scripts/readiness_check.py --run-real-auditor --run-claude-trust-smoke --run-codex-exec-smoke`: last verified as `partial`, with `13 pass`, `3 manual`, `0 external_blocked`, and `0 fail` when local Metal and Codex app-server access are available.
+- The remaining real-agent manual item is a full interactive tool-confirmation command in a disposable workspace. Claude Code startup trust, Codex non-interactive model/tool execution, synthetic multi-prompt flows, and one real Gemma structured verdict are now proven. A real Claude Code tool attempt trusted the temp workspace and typed the harmless prompt, but it did not reach a tool permission prompt before timeout. Gemini prompted for browser authentication in this session. A Codex full-screen TUI attempt still emitted only terminal-control/query sequences and did not reach a usable prompt.
 
 Release checks:
 
@@ -271,8 +273,8 @@ Useful drift:
 
 Unresolved drift:
 
-- The plan expected real Gemma auditor verification, but this execution session has no Metal device. Dry-run auditor checks pass, but real model load is still externally blocked here.
-- The plan expected real local agent validation. PTY fixtures, CLI version probes, a bounded Claude Code startup trust prompt, synthetic multi-prompt flows, and Codex non-interactive model/tool execution pass, but a deliberately safe real interactive Claude/Gemini/Codex tool-confirmation run is still not complete.
+- The plan expected real Gemma auditor verification; that is now proven in a Metal-capable local run, but default readiness still treats it as opt-in because restricted sessions may not expose Metal.
+- The plan expected real local agent validation. PTY fixtures, basic terminal query responses, CLI version probes, a bounded Claude Code startup trust prompt, synthetic multi-prompt flows, and Codex non-interactive model/tool execution pass, but a deliberately safe real interactive Claude/Gemini/Codex tool-confirmation run is still not complete.
 - MCP-Cortex is used as trace-oriented metadata support, not as a full MCP authorization proxy.
 
 ## Troubleshooting
@@ -324,7 +326,7 @@ Run the structured auditor dry run:
 venv/bin/python scripts/auditor_smoke.py --dry-run
 ```
 
-Run the real auditor smoke when Metal is available:
+Run the real auditor smoke from a Metal-capable local macOS session:
 
 ```bash
 venv/bin/python scripts/auditor_smoke.py
@@ -364,7 +366,7 @@ python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30
 git diff --check
 ```
 
-`scripts/readiness_check.py` emits a JSON proof matrix for the `GOAL.md` checks. It runs local disposable smokes and safe non-interactive agent CLI metadata probes by default, leaves full test suites and full real interactive agent commands as manual evidence, and marks the real auditor smoke as externally blocked unless `--run-real-auditor` is provided in a Metal-capable session. Add `--run-claude-trust-smoke` to run the bounded Claude Code startup trust-prompt smoke in a disposable workspace. Add `--run-codex-exec-smoke` to run the bounded Codex exec model/tool smoke in an ephemeral temp workspace.
+`scripts/readiness_check.py` emits a JSON proof matrix for the `GOAL.md` checks. It runs local disposable smokes and safe non-interactive agent CLI metadata probes by default, leaves full test suites and full real interactive agent commands as manual evidence, and marks the real auditor smoke as externally blocked unless `--run-real-auditor` is provided in a Metal-capable session. Add `--run-claude-trust-smoke` to run the bounded Claude Code startup trust-prompt smoke in a disposable workspace. Add `--run-codex-exec-smoke` to run the bounded Codex exec model/tool smoke in an ephemeral temp workspace. With all three optional real checks enabled in a suitable local session, the latest verified result is `13 pass`, `3 manual`, and `0 external_blocked`.
 
 Use `--include-tests` when you want the readiness report to run the root and MCP-Cortex pytest suites as part of the matrix. In managed/sandboxed sessions, nested subprocess calls inside the root suite may be reported as externally blocked; run `pytest -q` directly for authoritative root-suite evidence.
 

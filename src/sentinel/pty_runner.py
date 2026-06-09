@@ -60,11 +60,40 @@ class PtyAgentRunner:
                     break
                 if not data:
                     break
+                self._respond_to_terminal_queries(data)
                 self.output_queue.put(data.decode(errors="replace"))
         except Exception as e:
             logger.error(f"Error reading PTY output: {e}")
         finally:
             logger.debug("PTY reader thread stopped")
+
+    def _respond_to_terminal_queries(self, data: bytes):
+        responses: list[bytes] = []
+        if b"\x1b[6n" in data:
+            responses.append(b"\x1b[1;1R")
+        if b"\x1b[c" in data:
+            responses.append(b"\x1b[?1;2c")
+        if b"\x1b[?u" in data:
+            responses.append(b"\x1b[?0u")
+        if b"\x1b]10;?\x1b\\" in data:
+            responses.append(b"\x1b]10;rgb:ffff/ffff/ffff\x1b\\")
+        if b"\x1b]11;?\x1b\\" in data:
+            responses.append(b"\x1b]11;rgb:0000/0000/0000\x1b\\")
+        if not responses:
+            return
+
+        with self._lock:
+            master_fd = self.master_fd
+            process_alive = self.process and self.process.poll() is None
+        if master_fd is None or not process_alive:
+            return
+
+        for response in responses:
+            try:
+                os.write(master_fd, response)
+            except OSError as e:
+                logger.debug(f"Error writing PTY terminal response: {e}")
+                break
 
     def suspend(self):
         with self._lock:

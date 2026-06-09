@@ -79,3 +79,23 @@ def test_pty_runner_kills_process_group():
     runner.kill()
     time.sleep(0.5)
     assert get_pgid_processes(pgid) == []
+
+
+def test_pty_runner_answers_cursor_position_query():
+    script = (
+        f"{sys.executable} -c \""
+        "import os, sys, termios, tty; "
+        "tty.setraw(sys.stdin.fileno()); "
+        "sys.stdout.write('\\\\x1b[6n'); sys.stdout.flush(); "
+        "response=os.read(sys.stdin.fileno(), 16); "
+        "termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, termios.tcgetattr(sys.stdin.fileno())); "
+        "print('response:' + repr(response), flush=True)"
+        "\""
+    )
+    runner = PtyAgentRunner(script)
+    runner.start()
+    try:
+        output = wait_for_text(runner, "response:")
+        assert "b'\\x1b[1;1R'" in output
+    finally:
+        runner.kill()
