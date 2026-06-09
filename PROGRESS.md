@@ -60,6 +60,8 @@
 - Added `python scripts/readiness_check.py --run-claude-trust-smoke` so the readiness matrix can include the bounded Claude Code startup prompt/control proof without treating it as full model/tool validation.
 - Added repeated `--interaction "REGEX=>INPUT"` support to `scripts/real_agent_smoke.py` for sequential prompt/input flows, such as workspace trust followed by a tool confirmation.
 - Tightened `scripts/real_agent_smoke.py` expected-output handling so a marker already present in prompt text cannot count as successful final output.
+- Added `python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30`, a bounded Codex exec smoke that verifies a harmless shell `command_execution` in an ephemeral temp workspace.
+- Added `python scripts/readiness_check.py --run-codex-exec-smoke` so the readiness matrix can include real Codex model/tool command execution evidence without treating it as interactive prompt control.
 
 ### Verification
 
@@ -267,12 +269,20 @@
 - Real Claude Code model/tool attempt with `claude --bare --safe-mode --permission-mode default --tools Bash` in a disposable workspace: exits 1 after timeout. The harness detected workspace trust and typed the harmless encoded prompt, but did not reach a tool permission prompt or produce `SENTINEL_TOOL_OK`; `process_killed: true` and `expected_output_seen_before_response: false`.
 - `pytest -q`: `134 passed in 138.86s`.
 - `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.50s`.
+- `pytest -q tests/test_real_agent_smoke.py::test_real_agent_smoke_named_codex_exec_mode_parses_tool_output tests/test_readiness_check.py::test_readiness_report_can_run_named_codex_exec_smoke`: initially failed on missing `--codex-exec-smoke` and readiness flag, then passed after implementation with `2 passed in 0.02s`.
+- `python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30`: first failed under restricted sandbox with `failed to initialize in-process app-server client: Operation not permitted`; rerun with local app-server access exits 0 with `tool_output_detected: true`, `tool_exit_code: 0`, `event_count: 7`, and `proves_model_or_tool_behavior: true`.
+- `python scripts/readiness_check.py --run-claude-trust-smoke --run-codex-exec-smoke`: exits 0 with `status: partial`, `12 pass`, `3 manual`, and `1 external_blocked` when Codex exec has local app-server access.
+- Gemini CLI non-interactive check prompted `Opening authentication page in your browser. Do you want to continue? [Y/n]:`; the prompt was terminated rather than opening browser/auth flow.
+- `pytest -q`: `136 passed in 138.49s`.
+- `python -m pytest -q` from `mcp-cortex/`: `11 passed in 0.52s`.
+- `pytest -q tests/test_readme.py tests/test_readiness_check.py tests/test_real_agent_smoke.py`: `14 passed in 0.81s`.
+- `python scripts/readiness_check.py`: exits 0 with `status: partial`, `10 pass`, `5 manual`, `1 external_blocked`, and `0 fail`.
 
 ### Still Open
 
 - Confirm/review outcomes now log structured approval context, show a mounted-tested approval panel, and support FIFO queueing.
 - Command/tool extraction now handles basic JSON and Bash tool-call text, but still needs validation against real model/tool protocols.
-- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, Claude Code startup trust-prompt control is proven, and synthetic multi-prompt flows are proven; it still needs a safe full model/tool confirmation run against an actual Claude/Gemini/Codex command.
+- Guarded real-agent smoke harness exists, safe non-interactive CLI probes pass for Codex/Claude/Gemini, Claude Code startup trust-prompt control is proven, synthetic multi-prompt flows are proven, and Codex non-interactive model/tool command execution is proven; it still needs a safe full interactive tool-confirmation run against an actual Claude/Gemini/Codex command.
 - CLI controls for arbitrary override patterns are implemented through repeated `--allow-path`; the TUI also has a first-class manual Textual input modal for arbitrary glob overrides.
 - Aggregate local E2E scenario coverage is implemented; full real-agent model/tool E2E validation remains unproven.
 - Readiness proof matrix is implemented; it intentionally reports partial until real auditor and full real-agent model/tool evidence are available.

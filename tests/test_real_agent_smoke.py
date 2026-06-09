@@ -3,6 +3,7 @@ import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 def load_real_agent_smoke_module():
@@ -177,3 +178,48 @@ def test_real_agent_smoke_named_claude_trust_mode_uses_disposable_safe_command(
     assert captured["approval_input"] == "2"
     assert "Quick.*safety.*check" in captured["prompt_pattern"]
     assert captured["timeout_seconds"] == 3
+
+
+def test_real_agent_smoke_named_codex_exec_mode_parses_tool_output(monkeypatch, capsys):
+    module = load_real_agent_smoke_module()
+    captured = {}
+
+    def fake_run(command, *, cwd, capture_output, text, timeout, check):
+        captured["command"] = command
+        captured["cwd"] = cwd
+        captured["timeout"] = timeout
+        return SimpleNamespace(
+            returncode=0,
+            stdout="\n".join(
+                [
+                    json.dumps({"type": "thread.started"}),
+                    json.dumps(
+                        {
+                            "type": "item.completed",
+                            "item": {
+                                "type": "command_execution",
+                                "aggregated_output": "SENTINEL_CODEX_OK\n",
+                                "exit_code": 0,
+                                "status": "completed",
+                            },
+                        }
+                    ),
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    exit_code = module.main(["--codex-exec-smoke", "--timeout", "7"])
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert report["status"] == "ok"
+    assert report["codex_exec_smoke"] is True
+    assert report["proves_model_or_tool_behavior"] is True
+    assert report["interactive_prompt_control"] is False
+    assert report["tool_output_detected"] is True
+    assert captured["command"][:3] == ["codex", "exec", "--ephemeral"]
+    assert "-C" in captured["command"]
+    assert captured["timeout"] == 7

@@ -24,6 +24,11 @@ CLAUDE_TRUST_COMMAND = "claude --bare --safe-mode --permission-mode plan --tools
 CLAUDE_TRUST_PROMPT_PATTERN = (
     r"Quick.*safety.*check|No,.*exit|Enter.*confirm|Accessing.*workspace"
 )
+CODEX_EXEC_MARKER = "SENTINEL_CODEX_OK"
+CODEX_EXEC_PROMPT = (
+    "Use the shell to run exactly this harmless command, then report the output: "
+    "python -c 'print(\"SENTINEL_CODEX_OK\")'"
+)
 DEFAULT_AGENT_PROBES = [
     ("codex", ["codex", "--version"]),
     ("claude", ["claude", "--version"]),
@@ -47,6 +52,15 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "Run Claude Code's workspace trust prompt in a temp workspace, answer "
             "'No, exit', and kill the process. Does not prove model/tool behavior."
+        ),
+    )
+    parser.add_argument(
+        "--codex-exec-smoke",
+        action="store_true",
+        help=(
+            "Run Codex exec in an ephemeral temp workspace and verify a harmless "
+            "shell command_execution event. Proves model/tool behavior, not "
+            "interactive prompt control."
         ),
     )
     parser.add_argument(
@@ -112,6 +126,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, sort_keys=True))
             return 0 if report["status"] == "ok" else 1
 
+    if args.codex_exec_smoke:
+        with tempfile.TemporaryDirectory(prefix="sentinel-codex-exec-smoke-") as tmp:
+            report = run_codex_exec_smoke(Path(tmp), timeout_seconds=args.timeout)
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return 0 if report["status"] == "ok" else 1
+
     if not args.agent_command:
         parser.error("--agent-command is required unless --dry-run is used.")
 
@@ -174,6 +194,91 @@ def build_agent_probe_report(
         "total": len(results),
         "agent_probes": results,
     }
+
+
+def run_codex_exec_smoke(workspace: Path, *, timeout_seconds: float) -> dict:
+    command = [
+        "codex",
+        "exec",
+        "--ephemeral",
+        "--skip-git-repo-check",
+        "-C",
+        str(workspace),
+        "--json",
+        CODEX_EXEC_PROMPT,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = ((exc.stdout or "") + (exc.stderr or "")).strip()
+        return {
+            "status": "error",
+            "codex_exec_smoke": True,
+            "disposable_workspace": True,
+            "workspace": str(workspace),
+            "command": command,
+            "returncode": None,
+            "tool_output_detected": False,
+            "proves_model_or_tool_behavior": False,
+            "interactive_prompt_control": False,
+            "error": "timeout",
+            "output_tail": output[-2000:],
+        }
+
+    events = parse_jsonl_events(result.stdout)
+    command_events = [
+        event.get("item", {})
+        for event in events
+        if event.get("type") == "item.completed"
+        and event.get("item", {}).get("type") == "command_execution"
+    ]
+    completed_tool_event = next(
+        (
+            item
+            for item in command_events
+            if item.get("exit_code") == 0
+            and item.get("status") == "completed"
+            and CODEX_EXEC_MARKER in item.get("aggregated_output", "")
+        ),
+        None,
+    )
+    tool_output_detected = completed_tool_event is not None
+    status = "ok" if result.returncode == 0 and tool_output_detected else "error"
+    output = (result.stdout + result.stderr).strip()
+    return {
+        "status": status,
+        "codex_exec_smoke": True,
+        "disposable_workspace": True,
+        "workspace": str(workspace),
+        "command": command,
+        "returncode": result.returncode,
+        "tool_output_detected": tool_output_detected,
+        "tool_exit_code": completed_tool_event.get("exit_code") if completed_tool_event else None,
+        "proves_model_or_tool_behavior": tool_output_detected,
+        "interactive_prompt_control": False,
+        "event_count": len(events),
+        "output_tail": output[-2000:],
+    }
+
+
+def parse_jsonl_events(output: str) -> list[dict]:
+    events: list[dict] = []
+    for line in output.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return events
 
 
 def run_agent_probe(command: list[str], *, timeout_seconds: float) -> dict:

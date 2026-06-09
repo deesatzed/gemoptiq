@@ -26,8 +26,8 @@ Nested `mcp-cortex/` uses its own `pyproject.toml` with setuptools.
 
 | Purpose | Command | Verified |
 |---|---|---|
-| Sentinel tests | `pytest -q` | Yes: `131 passed in 138.17s` |
-| MCP-Cortex full tests | `python -m pytest -q` from `mcp-cortex/` | Yes: `11 passed in 0.56s` |
+| Sentinel tests | `pytest -q` | Yes: `136 passed in 138.49s` |
+| MCP-Cortex full tests | `python -m pytest -q` from `mcp-cortex/` | Yes: `11 passed in 0.52s` |
 | Editable install | `venv/bin/python -m pip install -e .` | Yes |
 | Sentinel CLI help | `venv/bin/sentinel --help` | Yes |
 | Sentinel run help | `venv/bin/sentinel run --help` | Yes |
@@ -38,7 +38,7 @@ Nested `mcp-cortex/` uses its own `pyproject.toml` with setuptools.
 | Aggregate E2E smoke | `python scripts/e2e_smoke.py` | Yes: status ok with all scenario booleans true |
 | Real-agent smoke harness dry run | `python scripts/real_agent_smoke.py --dry-run` | Yes: guarded dry-run report |
 | Real-agent CLI metadata probe | `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5` | Yes: Codex, Claude Code, and Gemini version probes pass; not interactive proof |
-| Readiness proof matrix | `python scripts/readiness_check.py` and `venv/bin/sentinel readiness` | Yes: `10 pass`, `3 manual`, `1 external_blocked` |
+| Readiness proof matrix | `python scripts/readiness_check.py` | Yes: `10 pass`, `5 manual`, `1 external_blocked` |
 | Readiness proof matrix with tests | `python scripts/readiness_check.py --include-tests` | Partial: `10 pass`, `1 manual`, `2 external_blocked` in this managed session because nested root-suite subprocess calls are denied |
 | Release check dry run | `python scripts/release_check.py --skip-wheel` | Yes |
 | Release wheel check | `python scripts/release_check.py --wheel-dir /tmp/cortex-sentinel-release-check` | Yes: builds `cortex_sentinel-0.1.0-py3-none-any.whl` |

@@ -59,6 +59,14 @@ def add_readiness_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--run-codex-exec-smoke",
+        action="store_true",
+        help=(
+            "Also run Codex exec in an ephemeral temp workspace and verify a "
+            "harmless command_execution event. Does not prove interactive prompt control."
+        ),
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit non-zero unless every item is pass.",
@@ -78,6 +86,7 @@ def run_readiness(
         run_full_tests=args.include_tests and not args.no_run,
         run_real_auditor=args.run_real_auditor,
         run_claude_trust_smoke=args.run_claude_trust_smoke and not args.no_run,
+        run_codex_exec_smoke=args.run_codex_exec_smoke and not args.no_run,
         runner=runner or run_command,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
@@ -95,6 +104,7 @@ def build_report(
     run_real_auditor: bool,
     runner: Runner,
     run_claude_trust_smoke: bool = False,
+    run_codex_exec_smoke: bool = False,
 ) -> dict:
     items: dict[str, dict] = {}
 
@@ -187,15 +197,37 @@ def build_report(
             "not model/tool confirmation behavior."
         ),
     )
+    items["real_agent_codex_exec_smoke"] = command_item(
+        (
+            "Verify Codex exec can perform a harmless shell command_execution "
+            "inside an ephemeral temp workspace."
+        ),
+        [
+            "python",
+            "scripts/real_agent_smoke.py",
+            "--codex-exec-smoke",
+            "--timeout",
+            "30",
+        ],
+        run_codex_exec_smoke,
+        runner,
+        project_root=project_root,
+        manual_evidence=(
+            "Optional bounded real Codex exec model/tool smoke; rerun with "
+            "`--run-codex-exec-smoke`. This proves model/tool command execution, "
+            "not interactive prompt control."
+        ),
+    )
     items["real_agent_command"] = manual_item(
         (
             "Run the guarded real-agent harness with a real Claude/Gemini/Codex "
-            "model/tool confirmation command."
+            "interactive tool-confirmation command."
         ),
         (
             "Requires a deliberately safe disposable command and confirmed "
-            "account/credential state. The Claude trust-prompt smoke is a "
-            "narrower startup/control proof."
+            "account/credential state. The Claude trust-prompt smoke proves "
+            "startup/control, and the Codex exec smoke proves non-interactive "
+            "model/tool execution."
         ),
         [
             "python",
