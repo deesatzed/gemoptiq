@@ -8,11 +8,14 @@
 - Added `docs/index.html`, a standalone static landing page that visually explains the local agent supervision loop: request, effect classification, policy decision, rollback evidence, and trace replay.
 - Added `docs/showpiece/cortex-sentinel.md` to define the demo narrative, verified public claims, and claims to avoid.
 - Added `docs/plans/2026-06-10-readme-landing-showpiece-design.md` to record the public-facing documentation/landing-page design.
+- Upgraded `docs/index.html` for a vibe-coding college freshman audience, adding the problem set Sentinel was designed for, before/after framing, a step-by-step walkthrough, and static screenshot-style examples for block, rollback, approval queue, and trace replay scenarios.
+- Added `docs/plans/2026-06-10-freshman-landing-page-upgrade.md` for the landing-page upgrade implementation plan.
 
 ### Notes
 
 - The public story remains bounded: Cortex Sentinel is local supervision and evidence capture, not a hard OS sandbox or production security boundary.
 - The landing page is static HTML so it can be opened directly now and optionally hosted with GitHub Pages later.
+- The landing-page screenshots are static explanatory examples, not new runtime screenshots.
 
 ## 2026-06-09
 

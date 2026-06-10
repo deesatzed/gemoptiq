@@ -3,30 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cortex Sentinel - Local Safety Console for Coding Agents</title>
+    <title>Cortex Sentinel - Guardrails for Vibe Coding Agents</title>
     <meta
       name="description"
-      content="Cortex Sentinel supervises local coding agents with policy gates, human approval, rollback evidence, and replayable traces."
+      content="Cortex Sentinel helps students and developers run local coding agents with policy checks, human approval, rollback evidence, and trace replay."
     />
     <style>
       :root {
         color-scheme: light;
-        --paper: #f7f3ea;
+        --paper: #f6f0e4;
         --surface: #fffdf8;
-        --ink: #211f1a;
-        --muted: #625d51;
-        --line: #d7d0c2;
-        --panel: #171510;
-        --panel-soft: #242018;
+        --ink: #201e19;
+        --muted: #635d50;
+        --line: #d9cfbd;
+        --panel: #161411;
+        --panel-soft: #262117;
         --green: #1f8a5f;
-        --green-soft: #d9efe6;
-        --amber: #b86d1b;
-        --amber-soft: #f8e3c2;
-        --red: #b6423c;
-        --red-soft: #f3d8d6;
-        --blue: #326b7c;
-        --blue-soft: #d9eaf0;
-        --shadow: 0 28px 70px rgba(46, 40, 28, 0.18);
+        --green-soft: #dff2e9;
+        --amber: #b76c1b;
+        --amber-soft: #f8e3be;
+        --red: #b33f3b;
+        --red-soft: #f3d7d3;
+        --teal: #2d6f78;
+        --teal-soft: #d9edf0;
+        --violet: #6a5687;
+        --violet-soft: #e7def0;
+        --shadow: 0 24px 64px rgba(46, 39, 26, 0.16);
       }
 
       * {
@@ -62,18 +64,18 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 24px;
-        padding: 16px clamp(18px, 4vw, 56px);
-        border-bottom: 1px solid rgba(33, 31, 26, 0.1);
-        background: rgba(247, 243, 234, 0.92);
-        backdrop-filter: blur(16px);
+        gap: 20px;
+        padding: 14px clamp(18px, 4vw, 56px);
+        border-bottom: 1px solid rgba(32, 30, 25, 0.12);
+        background: rgba(246, 240, 228, 0.94);
+        backdrop-filter: blur(14px);
       }
 
       .brand {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        font-weight: 800;
+        font-weight: 900;
       }
 
       .mark {
@@ -85,17 +87,17 @@
         background: var(--ink);
         color: var(--paper);
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 900;
       }
 
       .nav-links {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         color: var(--muted);
         font-size: 14px;
-        font-weight: 700;
+        font-weight: 800;
       }
 
       .nav-links a {
@@ -109,11 +111,11 @@
 
       .hero {
         display: grid;
-        grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
-        gap: clamp(28px, 5vw, 72px);
+        grid-template-columns: minmax(0, 0.86fr) minmax(380px, 1.14fr);
+        gap: clamp(28px, 5vw, 70px);
         align-items: center;
-        min-height: calc(100vh - 67px);
-        padding: clamp(36px, 6vw, 76px) clamp(18px, 5vw, 72px) 34px;
+        min-height: calc(100vh - 63px);
+        padding: clamp(34px, 6vw, 76px) clamp(18px, 5vw, 72px) 40px;
       }
 
       .eyebrow {
@@ -127,7 +129,7 @@
         background: var(--surface);
         color: var(--muted);
         font-size: 13px;
-        font-weight: 800;
+        font-weight: 900;
       }
 
       .status-dot {
@@ -146,23 +148,23 @@
 
       h1 {
         max-width: 760px;
-        margin-bottom: 16px;
-        font-size: clamp(56px, 10vw, 126px);
-        line-height: 0.88;
+        margin-bottom: 14px;
+        font-size: clamp(54px, 9vw, 112px);
+        line-height: 0.9;
         letter-spacing: 0;
       }
 
       .hero-copy {
-        max-width: 690px;
+        max-width: 700px;
         color: var(--muted);
-        font-size: clamp(18px, 2vw, 24px);
+        font-size: clamp(18px, 2vw, 23px);
       }
 
       .hero-actions {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
-        margin: 28px 0 30px;
+        margin: 26px 0 28px;
       }
 
       .button {
@@ -174,7 +176,7 @@
         border: 1px solid var(--ink);
         background: var(--ink);
         color: var(--surface);
-        font-weight: 800;
+        font-weight: 900;
         text-decoration: none;
       }
 
@@ -183,42 +185,22 @@
         color: var(--ink);
       }
 
-      .metric-strip {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        max-width: 720px;
-      }
-
-      .metric {
-        min-height: 88px;
-        padding: 14px;
-        border: 1px solid var(--line);
+      .plain-note {
+        max-width: 680px;
+        padding: 14px 16px;
+        border-left: 5px solid var(--amber);
         background: var(--surface);
-      }
-
-      .metric strong {
-        display: block;
-        color: var(--ink);
-        font-size: clamp(22px, 3vw, 32px);
-        line-height: 1;
-      }
-
-      .metric span {
-        display: block;
-        margin-top: 8px;
         color: var(--muted);
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 15px;
       }
 
-      .console-wrap {
+      .hero-visual {
         min-width: 0;
       }
 
-      .sentinel-board {
+      .problem-board {
         overflow: hidden;
-        border: 1px solid rgba(33, 31, 26, 0.18);
+        border: 1px solid rgba(32, 30, 25, 0.18);
         background: var(--surface);
         box-shadow: var(--shadow);
       }
@@ -248,59 +230,59 @@
         color: var(--muted);
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 12px;
-        font-weight: 800;
+        font-weight: 900;
       }
 
       .board-body {
         display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(250px, 0.9fr);
+        grid-template-columns: minmax(0, 1.08fr) minmax(250px, 0.92fr);
         min-height: 520px;
       }
 
       .terminal {
         padding: 20px;
         background: var(--panel);
-        color: #f3ead8;
+        color: #f7edd9;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 13px;
       }
 
       .line {
         display: grid;
-        grid-template-columns: 82px minmax(0, 1fr);
+        grid-template-columns: 86px minmax(0, 1fr);
         gap: 12px;
         padding: 9px 0;
         border-bottom: 1px solid rgba(255, 253, 248, 0.08);
       }
 
       .line span:first-child {
-        color: #c3ae82;
+        color: #c7b184;
       }
 
       .line strong {
         color: #fffdf8;
       }
 
-      .decision-panel {
+      .side-panel {
         display: grid;
         align-content: start;
         gap: 12px;
         padding: 18px;
-        background: #fbf7ee;
+        background: #fbf6eb;
       }
 
-      .decision-card {
+      .mini-card {
         padding: 14px;
         border: 1px solid var(--line);
         background: var(--surface);
       }
 
-      .decision-card h3 {
-        margin-bottom: 8px;
+      .mini-card h3 {
+        margin-bottom: 7px;
         font-size: 15px;
       }
 
-      .decision-card p {
+      .mini-card p {
         margin-bottom: 0;
         color: var(--muted);
         font-size: 13px;
@@ -319,35 +301,35 @@
         background: #f6efe1;
         color: var(--ink);
         font-size: 12px;
-        font-weight: 800;
+        font-weight: 900;
       }
 
       .tag.green {
         border-color: rgba(31, 138, 95, 0.28);
         background: var(--green-soft);
-        color: #15543c;
+        color: #14563d;
       }
 
       .tag.amber {
-        border-color: rgba(184, 109, 27, 0.32);
+        border-color: rgba(183, 108, 27, 0.32);
         background: var(--amber-soft);
-        color: #6f3d08;
+        color: #6d3b08;
       }
 
       .tag.red {
-        border-color: rgba(182, 66, 60, 0.3);
+        border-color: rgba(179, 63, 59, 0.3);
         background: var(--red-soft);
-        color: #7c2925;
+        color: #7b2925;
       }
 
-      .tag.blue {
-        border-color: rgba(50, 107, 124, 0.26);
-        background: var(--blue-soft);
-        color: #1f505e;
+      .tag.teal {
+        border-color: rgba(45, 111, 120, 0.3);
+        background: var(--teal-soft);
+        color: #1c555d;
       }
 
       .section {
-        padding: 80px clamp(18px, 5vw, 72px);
+        padding: 78px clamp(18px, 5vw, 72px);
       }
 
       .section.alt {
@@ -355,13 +337,13 @@
       }
 
       .section-head {
-        max-width: 820px;
+        max-width: 900px;
         margin-bottom: 34px;
       }
 
       .section h2 {
         margin-bottom: 12px;
-        font-size: clamp(34px, 5vw, 68px);
+        font-size: clamp(34px, 5vw, 64px);
         line-height: 0.98;
         letter-spacing: 0;
       }
@@ -371,53 +353,183 @@
         font-size: 18px;
       }
 
-      .grid {
+      .problem-grid,
+      .proof-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 14px;
       }
 
-      .feature,
-      .proof,
-      .boundary-item {
+      .problem-card,
+      .proof-card,
+      .step-card,
+      .boundary-card {
         min-height: 180px;
         padding: 18px;
         border: 1px solid var(--line);
         background: var(--surface);
       }
 
-      .feature h3,
-      .proof h3,
-      .boundary-item h3 {
+      .problem-card strong,
+      .step-card strong {
+        display: inline-grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        margin-bottom: 12px;
+        background: var(--ink);
+        color: var(--paper);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .problem-card h3,
+      .proof-card h3,
+      .step-card h3,
+      .boundary-card h3 {
         margin-bottom: 8px;
         font-size: 18px;
       }
 
-      .feature p,
-      .proof p,
-      .boundary-item p {
+      .problem-card p,
+      .proof-card p,
+      .step-card p,
+      .boundary-card p {
         color: var(--muted);
         font-size: 14px;
       }
 
-      .proof-grid {
+      .before-after {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
       }
 
-      .proof strong {
+      .compare {
+        min-height: 320px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .compare.danger {
+        border-top: 6px solid var(--red);
+      }
+
+      .compare.safe {
+        border-top: 6px solid var(--green);
+      }
+
+      .compare ul {
+        margin: 16px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+
+      .compare li {
+        margin: 10px 0;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .step-card {
+        min-height: 220px;
+      }
+
+      .screenshot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .shot {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .shot figcaption {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        font-weight: 900;
+      }
+
+      .shot-screen {
+        min-height: 320px;
+        padding: 18px;
+        background: var(--panel);
+        color: #f7edd9;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+      }
+
+      .shot-screen.light {
+        background: #fbf6eb;
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      .screen-row {
+        display: grid;
+        grid-template-columns: 118px minmax(0, 1fr);
+        gap: 12px;
+        padding: 9px 0;
+        border-bottom: 1px solid rgba(255, 253, 248, 0.09);
+      }
+
+      .screen-row span:first-child {
+        color: #c7b184;
+      }
+
+      .shot-screen.light .screen-row {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .shot-screen.light .screen-row span:first-child {
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .queue-item {
+        margin-bottom: 12px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .queue-item h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+      }
+
+      .queue-item p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .proof-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .proof-card strong {
         display: block;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         color: var(--green);
         font-size: 34px;
         line-height: 1;
       }
 
-      .boundary {
+      .boundary-layout {
         display: grid;
-        grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
-        gap: 28px;
+        grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+        gap: 18px;
       }
 
       .boundary-list {
@@ -447,9 +559,15 @@
         font-size: 14px;
       }
 
+      @media (max-width: 1180px) {
+        .flow {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
       @media (max-width: 1020px) {
         .hero,
-        .boundary {
+        .boundary-layout {
           grid-template-columns: 1fr;
         }
 
@@ -457,13 +575,14 @@
           grid-template-columns: 1fr;
         }
 
-        .grid,
-        .proof-grid {
+        .problem-grid,
+        .proof-grid,
+        .screenshot-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
 
-      @media (max-width: 680px) {
+      @media (max-width: 720px) {
         .nav {
           align-items: flex-start;
           flex-direction: column;
@@ -478,20 +597,23 @@
           padding-top: 28px;
         }
 
-        .metric-strip,
-        .grid,
-        .proof-grid {
+        .problem-grid,
+        .proof-grid,
+        .before-after,
+        .flow,
+        .screenshot-grid {
           grid-template-columns: 1fr;
         }
 
-        .line {
+        .line,
+        .screen-row {
           grid-template-columns: 1fr;
           gap: 4px;
         }
 
         .section {
-          padding-top: 58px;
-          padding-bottom: 58px;
+          padding-top: 56px;
+          padding-bottom: 56px;
         }
       }
     </style>
@@ -504,82 +626,68 @@
           <span>Cortex Sentinel</span>
         </div>
         <div class="nav-links">
-          <a href="#does">What it does</a>
-          <a href="#proof">Proof</a>
-          <a href="#boundary">Boundary</a>
+          <a href="#problems">Problems</a>
+          <a href="#walkthrough">Walkthrough</a>
+          <a href="#screens">Examples</a>
           <a href="#try">Try it</a>
         </div>
       </nav>
 
       <section class="hero">
         <div>
-          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>Local agent supervision MVP</p>
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>For vibe coding with local agents</p>
           <h1>Cortex Sentinel</h1>
           <p class="hero-copy">
-            Run autonomous coding agents with a brake pedal: deterministic policy,
-            human approval, protected-file rollback evidence, and replayable local traces.
+            Vibe coding is powerful. It can also wreck your repo fast. Cortex Sentinel
+            watches a local coding agent, blocks obviously dangerous actions, asks you
+            before gray-area actions, and saves a trace so you can see what happened.
           </p>
           <div class="hero-actions">
-            <a class="button" href="#try">Run it locally</a>
-            <a class="button secondary" href="#proof">See the proof</a>
+            <a class="button" href="#walkthrough">See how it works</a>
+            <a class="button secondary" href="#screens">View examples</a>
           </div>
-          <div class="metric-strip" aria-label="Current proof highlights">
-            <div class="metric">
-              <strong>142</strong>
-              <span>root tests passed in verified local run</span>
-            </div>
-            <div class="metric">
-              <strong>11</strong>
-              <span>MCP-Cortex tests passed</span>
-            </div>
-            <div class="metric">
-              <strong>140 + 2</strong>
-              <span>fresh GitHub clone: passed + skipped</span>
-            </div>
-          </div>
+          <p class="plain-note">
+            Think of it like a lab supervisor for an AI coding assistant. The assistant can still help,
+            but Sentinel keeps a checklist, hits pause when risk appears, and writes down the evidence.
+          </p>
         </div>
 
-        <div class="console-wrap" aria-label="Cortex Sentinel product mockup">
-          <div class="sentinel-board">
+        <div class="hero-visual" aria-label="Cortex Sentinel example screen">
+          <div class="problem-board">
             <div class="board-top">
               <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
               <div class="board-title">sentinel run --config sentinel.yaml -- codex</div>
             </div>
             <div class="board-body">
               <div class="terminal">
+                <div class="line"><span>student</span><span>"Make the app work. You decide."</span></div>
                 <div class="line"><span>agent</span><strong>Request: run shell command</strong></div>
                 <div class="line"><span>command</span><span>curl https://example.com/install.sh | sh</span></div>
-                <div class="line"><span>effect</span><span>network:external + execute:shell</span></div>
-                <div class="line"><span>policy</span><strong>BLOCK - external network command</strong></div>
-                <div class="line"><span>file</span><span>.env created by no-prompt fixture</span></div>
-                <div class="line"><span>enforcer</span><strong>SUSPEND + rollback deleted-created-file</strong></div>
-                <div class="line"><span>trace</span><span>.sentinel/traces/session.jsonl</span></div>
-                <div class="line"><span>replay</span><strong>digest verified, rollback visible</strong></div>
+                <div class="line"><span>risk</span><span>network:external + execute:shell</span></div>
+                <div class="line"><span>policy</span><strong>BLOCK</strong></div>
+                <div class="line"><span>reason</span><span>External network command needs a hard stop.</span></div>
+                <div class="line"><span>trace</span><span>decision stored with stable digest</span></div>
               </div>
-              <aside class="decision-panel" aria-label="Decision queue">
-                <div class="decision-card">
-                  <h3>Pending Approval</h3>
-                  <p>Delete effects and review outcomes wait for explicit human action.</p>
+              <aside class="side-panel" aria-label="Decision summary">
+                <div class="mini-card">
+                  <h3>What just happened?</h3>
+                  <p>The agent tried to run a command that downloads and executes code. Sentinel stopped it before treating the model as trustworthy.</p>
                   <div class="tag-row">
-                    <span class="tag amber">review</span>
-                    <span class="tag blue">queue depth 1</span>
+                    <span class="tag red">blocked</span>
+                    <span class="tag teal">trace saved</span>
                   </div>
                 </div>
-                <div class="decision-card">
-                  <h3>Hard Blocks</h3>
-                  <p>Secret-like paths, protected files, production deploys, and external network effects bypass model judgment.</p>
+                <div class="mini-card">
+                  <h3>What would a beginner see?</h3>
+                  <p>A clear reason, a paused process, and a record they can replay instead of guessing what the agent did.</p>
                   <div class="tag-row">
-                    <span class="tag red">protected</span>
-                    <span class="tag red">secret</span>
-                  </div>
-                </div>
-                <div class="decision-card">
-                  <h3>Auditor</h3>
-                  <p>Ambiguous cases can use a local MLX/Gemma model, but only structured JSON verdicts count.</p>
-                  <div class="tag-row">
-                    <span class="tag green">structured</span>
                     <span class="tag amber">reviewable</span>
+                    <span class="tag green">local</span>
                   </div>
+                </div>
+                <div class="mini-card">
+                  <h3>What is the boundary?</h3>
+                  <p>This is supervision and evidence. It is not a magic sandbox or a guarantee that every unsafe side effect is impossible.</p>
                 </div>
               </aside>
             </div>
@@ -587,91 +695,250 @@
         </div>
       </section>
 
-      <section id="does" class="section alt">
+      <section id="problems" class="section alt">
         <div class="section-head">
-          <h2>What it does</h2>
+          <h2>The problem it was designed to solve</h2>
           <p>
-            Sentinel wraps a local command, watches what the agent asks to do,
-            classifies risk, and records the session so the human can inspect it later.
+            Vibe coding usually starts with a vague prompt like "fix this" or "build the feature."
+            The agent can be useful, but it may also take actions you did not mean to authorize.
           </p>
         </div>
-        <div class="grid">
-          <article class="feature">
-            <h3>Policy gate</h3>
-            <p>Deterministic rules block protected paths, secret-like files, external network commands, and production deploy attempts before model review.</p>
+        <div class="problem-grid">
+          <article class="problem-card">
+            <strong>01</strong>
+            <h3>It can touch secrets</h3>
+            <p>A coding agent may inspect or modify `.env`, SSH files, tokens, or other sensitive paths while trying to debug.</p>
           </article>
-          <article class="feature">
-            <h3>Human approval</h3>
-            <p>The Textual TUI exposes approve, block, pause, kill, and scoped override controls for pending decisions.</p>
+          <article class="problem-card">
+            <strong>02</strong>
+            <h3>It can run risky commands</h3>
+            <p>Commands like `curl ... | sh`, network calls, deploy commands, and shell edits can create damage faster than a beginner can read them.</p>
           </article>
-          <article class="feature">
-            <h3>Rollback evidence</h3>
-            <p>A no-prompt protected-file write smoke proves Sentinel can suspend the runner and remove the created protected file.</p>
+          <article class="problem-card">
+            <strong>03</strong>
+            <h3>It can delete or overwrite work</h3>
+            <p>Deletes and broad rewrites may be technically valid but still wrong for your assignment, project, or repo state.</p>
           </article>
-          <article class="feature">
-            <h3>Trace replay</h3>
-            <p>Session JSONL traces capture decisions, effects, user actions, process lifecycle, rollback results, and stable digests.</p>
+          <article class="problem-card">
+            <strong>04</strong>
+            <h3>It can leave no trail</h3>
+            <p>After a long session, you may not know which action was allowed, blocked, reviewed, or rolled back.</p>
           </article>
         </div>
       </section>
 
-      <section id="proof" class="section">
+      <section class="section">
         <div class="section-head">
-          <h2>Proof, not vibes</h2>
+          <h2>Before and after Sentinel</h2>
           <p>
-            The project is designed around evidence. The README and GOAL file separate
-            proven behavior from remaining gaps.
+            The goal is not to stop you from using agents. The goal is to make agent work slower
+            at the dangerous moments and clearer after the run.
+          </p>
+        </div>
+        <div class="before-after">
+          <article class="compare danger">
+            <h3>Vibe coding without Sentinel</h3>
+            <ul>
+              <li>You ask for a broad fix.</li>
+              <li>The agent runs commands you may not fully understand.</li>
+              <li>Secret-like files and protected paths are just files unless you notice.</li>
+              <li>After the session, you reconstruct what happened from terminal scrollback.</li>
+              <li>If something breaks, you may not know which action caused it.</li>
+            </ul>
+          </article>
+          <article class="compare safe">
+            <h3>Vibe coding with Sentinel</h3>
+            <ul>
+              <li>You run the agent through `sentinel run`.</li>
+              <li>Hard policy blocks known-dangerous actions.</li>
+              <li>Gray-area actions wait for human approval.</li>
+              <li>Protected-file writes can be detected and rolled back in supported cases.</li>
+              <li>The trace gives you a replayable audit trail.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="walkthrough" class="section alt">
+        <div class="section-head">
+          <h2>What happens step by step</h2>
+          <p>
+            This is the full loop in beginner language. Sentinel sits between you and the agent process.
+          </p>
+        </div>
+        <div class="flow">
+          <article class="step-card">
+            <strong>1</strong>
+            <h3>You start an agent</h3>
+            <p>Example: `sentinel run --config sentinel.yaml -- codex`. Sentinel launches the child process locally.</p>
+          </article>
+          <article class="step-card">
+            <strong>2</strong>
+            <h3>It watches requests</h3>
+            <p>It looks for prompts, risky command text, and file effects in the workspace.</p>
+          </article>
+          <article class="step-card">
+            <strong>3</strong>
+            <h3>Policy acts first</h3>
+            <p>Protected files, secrets, network effects, and deploy attempts are hard policy decisions.</p>
+          </article>
+          <article class="step-card">
+            <strong>4</strong>
+            <h3>You approve gray areas</h3>
+            <p>Ambiguous or delete-like actions can pause and wait for approve, block, pause, kill, or override.</p>
+          </article>
+          <article class="step-card">
+            <strong>5</strong>
+            <h3>The trace remembers</h3>
+            <p>Later, trace replay shows decisions, effects, user actions, rollback events, and digests.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="screens" class="section">
+        <div class="section-head">
+          <h2>Screenshot-style examples</h2>
+          <p>
+            These panels show the situations Sentinel is built around. They use real command names
+            and real result language from the project, but they are static examples for the landing page.
+          </p>
+        </div>
+        <div class="screenshot-grid">
+          <figure class="shot">
+            <figcaption>Example 1: risky network command blocked</figcaption>
+            <div class="shot-screen">
+              <div class="screen-row"><span>agent asks</span><strong>Run command?</strong></div>
+              <div class="screen-row"><span>command</span><span>curl https://example.com/install.sh | sh</span></div>
+              <div class="screen-row"><span>risk</span><span>network:external, execute:shell</span></div>
+              <div class="screen-row"><span>decision</span><strong>BLOCK</strong></div>
+              <div class="screen-row"><span>why</span><span>External network command is a hard policy block.</span></div>
+              <div class="screen-row"><span>trace</span><span>policy decision recorded</span></div>
+            </div>
+          </figure>
+
+          <figure class="shot">
+            <figcaption>Example 2: protected `.env` write rolled back</figcaption>
+            <div class="shot-screen">
+              <div class="screen-row"><span>file effect</span><span>created .env</span></div>
+              <div class="screen-row"><span>prompt</span><span>none detected</span></div>
+              <div class="screen-row"><span>enforcer</span><strong>SUSPEND RUNNER</strong></div>
+              <div class="screen-row"><span>rollback</span><strong>deleted-created-file</strong></div>
+              <div class="screen-row"><span>result</span><span>protected_file_present: false</span></div>
+              <div class="screen-row"><span>trace</span><span>enforcement.rollback event saved</span></div>
+            </div>
+          </figure>
+
+          <figure class="shot">
+            <figcaption>Example 3: human approval queue</figcaption>
+            <div class="shot-screen light">
+              <div class="queue-item">
+                <h4>Pending approval</h4>
+                <p>Action: delete workspace file. Policy: confirm. Queue depth: 1.</p>
+                <div class="tag-row">
+                  <span class="tag amber">press a to approve</span>
+                  <span class="tag red">press b to block</span>
+                </div>
+              </div>
+              <div class="queue-item">
+                <h4>Manual override</h4>
+                <p>Use `m` for a temporary allow pattern like `src/ui/**`.</p>
+                <div class="tag-row">
+                  <span class="tag teal">trace visible</span>
+                  <span class="tag red">cannot bypass secrets</span>
+                </div>
+              </div>
+            </div>
+          </figure>
+
+          <figure class="shot">
+            <figcaption>Example 4: trace replay after the run</figcaption>
+            <div class="shot-screen">
+              <div class="screen-row"><span>command</span><span>sentinel trace replay --format text session.jsonl</span></div>
+              <div class="screen-row"><span>session</span><strong>status: ok</strong></div>
+              <div class="screen-row"><span>decisions</span><span>allow, block, review, confirm</span></div>
+              <div class="screen-row"><span>rollback</span><span>1 protected file rollback event</span></div>
+              <div class="screen-row"><span>digest</span><span>verified stable trace digest</span></div>
+              <div class="screen-row"><span>use</span><span>show your work, debug the run, audit decisions</span></div>
+            </div>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section alt">
+        <div class="section-head">
+          <h2>What is actually proven?</h2>
+          <p>
+            Cortex Sentinel is a local supervision MVP with evidence. The proof matters because
+            a safety tool should not rely on marketing claims.
           </p>
         </div>
         <div class="proof-grid">
-          <article class="proof">
-            <strong>PASS</strong>
-            <h3>Local test matrix</h3>
-            <p>Root tests, MCP-Cortex tests, disposable smokes, trace replay, and release checks are documented as explicit commands.</p>
+          <article class="proof-card">
+            <strong>142</strong>
+            <h3>Root tests passed</h3>
+            <p>The main repo test suite has passed with 142 tests in verified local runs.</p>
           </article>
-          <article class="proof">
+          <article class="proof-card">
+            <strong>11</strong>
+            <h3>MCP-Cortex tests passed</h3>
+            <p>The nested trace-oriented MCP-Cortex package has its own passing test suite.</p>
+          </article>
+          <article class="proof-card">
+            <strong>140 + 2</strong>
+            <h3>Fresh clone proof</h3>
+            <p>An independent GitHub clone passed with 140 tests and 2 skips after optional dependency handling was fixed.</p>
+          </article>
+          <article class="proof-card">
             <strong>PASS</strong>
             <h3>Codex TUI smoke</h3>
             <p>Workspace trust, command approval, and harmless command output are proven in an ephemeral workspace.</p>
           </article>
-          <article class="proof">
+          <article class="proof-card">
+            <strong>PASS</strong>
+            <h3>Protected rollback</h3>
+            <p>A disposable no-prompt `.env` write smoke proves suspension plus rollback for a created protected file.</p>
+          </article>
+          <article class="proof-card">
             <strong>OPEN</strong>
-            <h3>Claude/Gemini tools</h3>
-            <p>Startup trust and probes are proven, but full interactive Claude/Gemini tool-confirmation flows remain open.</p>
+            <h3>Claude/Gemini tool prompts</h3>
+            <p>Startup trust and CLI probes are proven, but full interactive Claude/Gemini tool-confirmation flows remain open.</p>
           </article>
         </div>
       </section>
 
-      <section id="boundary" class="section alt">
-        <div class="boundary">
+      <section class="section">
+        <div class="boundary-layout">
           <div class="section-head">
-            <h2>Clear safety boundary</h2>
+            <h2>What it can and cannot do</h2>
             <p>
-              Sentinel is local supervision. It is useful because it is practical,
-              inspectable, and evidence-backed. It is not a formal sandbox.
+              This section is here on purpose. A beginner should know the difference between
+              supervision, audit evidence, and true containment.
             </p>
           </div>
           <div class="boundary-list">
-            <article class="boundary-item">
-              <h3>It can supervise</h3>
-              <p>Launch a local process, classify effects, ask for approval, suspend/kill the runner, and write traces.</p>
+            <article class="boundary-card">
+              <h3>Can do</h3>
+              <p>Launch local agent commands, classify risky effects, block hard-policy violations, pause for human approval, record traces, and replay them later.</p>
             </article>
-            <article class="boundary-item">
-              <h3>It can react</h3>
-              <p>Polling enforcement can detect protected file effects after they appear and roll back supported protected writes.</p>
+            <article class="boundary-card">
+              <h3>Can sometimes repair</h3>
+              <p>For supported protected-file effects, polling enforcement can suspend the runner and roll back a created, modified, or deleted protected path.</p>
             </article>
-            <article class="boundary-item">
-              <h3>It cannot guarantee containment</h3>
-              <p>It is not a kernel sandbox, a container boundary, a cloud authorization service, or a replacement for safe disposable workspaces.</p>
+            <article class="boundary-card">
+              <h3>Cannot promise</h3>
+              <p>It is not a kernel sandbox, not a container, not a cloud authorization service, and not proof that every unsafe side effect is impossible.</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section id="try" class="section">
+      <section id="try" class="section alt">
         <div class="section-head">
-          <h2>Try it locally</h2>
-          <p>Install the package, inspect readiness, run a harmless command, then replay the trace.</p>
+          <h2>Try the safe path first</h2>
+          <p>
+            Start with a harmless command and readiness checks before putting a real agent on a real project.
+            Use disposable workspaces when testing real agents.
+          </p>
         </div>
         <div class="code-panel">
           <pre>pip install -e .
@@ -683,7 +950,7 @@ sentinel trace replay --format text .sentinel/traces/&lt;session&gt;.jsonl</pre>
       </section>
 
       <footer class="footer">
-        Cortex Sentinel is a local-first safety console. Use disposable workspaces for real-agent validation and keep secrets out of prompts and traces.
+        Cortex Sentinel is a local-first safety console for coding-agent supervision. Keep secrets out of prompts and traces, and use disposable workspaces for real-agent validation.
       </footer>
     </main>
   </body>
