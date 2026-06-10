@@ -1,5 +1,19 @@
 # PROGRESS.md
 
+## 2026-06-10
+
+### Completed
+
+- Reworked `README.md` into a clearer GitHub front door for Cortex Sentinel, with a stronger product explanation, showpiece links, proof summary, safety boundary, setup commands, and preserved tested sections.
+- Added `docs/index.html`, a standalone static landing page that visually explains the local agent supervision loop: request, effect classification, policy decision, rollback evidence, and trace replay.
+- Added `docs/showpiece/cortex-sentinel.md` to define the demo narrative, verified public claims, and claims to avoid.
+- Added `docs/plans/2026-06-10-readme-landing-showpiece-design.md` to record the public-facing documentation/landing-page design.
+
+### Notes
+
+- The public story remains bounded: Cortex Sentinel is local supervision and evidence capture, not a hard OS sandbox or production security boundary.
+- The landing page is static HTML so it can be opened directly now and optionally hosted with GitHub Pages later.
+
 ## 2026-06-09
 
 ### Completed

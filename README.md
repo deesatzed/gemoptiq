@@ -1,71 +1,67 @@
 # Cortex Sentinel
 
-Cortex Sentinel is a local safety console for running autonomous coding agents.
+Local safety console for autonomous coding agents.
 
-In plain English: it is like a lab supervisor sitting next to a coding AI. The AI can still do useful work, but Cortex Sentinel watches what it is about to do, pauses risky actions, records what happened, and gives the human a chance to approve, block, or inspect the action.
+**Cortex Sentinel lets you run tools like Codex, Claude Code, Gemini, or scripted agents with a brake pedal, a policy gate, rollback evidence, and a replayable audit trail.**
 
-It is built for local software development. It is not a cloud service, not a hard operating-system sandbox, and not a guarantee that a bad process can never touch a file. It is a practical guardrail and audit trail for high-autonomy coding workflows.
+It is the public-facing app in this repo. It is not a hard operating-system sandbox and it does not promise that unsafe software can never touch a file. It is a practical supervision layer for local development: watch the agent, stop risky actions, ask the human before ambiguous actions, and keep evidence of what happened.
 
-## What This App Is Used For
+## Showpiece
 
-Use Cortex Sentinel when you want to run an AI coding tool, script, or agent but you do not want to trust it blindly.
+- Landing page: [docs/index.html](docs/index.html)
+- Showpiece brief: [docs/showpiece/cortex-sentinel.md](docs/showpiece/cortex-sentinel.md)
+- Gap analysis and proof contract: [GOAL.md](GOAL.md)
 
-Examples:
+The landing page is intentionally built around the real product story: a local agent asks to act, Sentinel classifies the effect, protected paths are blocked, review actions wait for a human, and trace replay proves the session later.
 
-- Let an agent edit normal source files while blocking `.env`, SSH keys, and other secret-like files.
-- Pause the agent before delete operations or ambiguous actions.
-- See why a command was allowed, blocked, or sent for review.
-- Keep a local JSONL audit trail of prompts, policy decisions, file effects, rollback events, user actions, and process lifecycle events.
-- Run disposable smoke tests that prove the safety loop still works before using the app on real work.
+## Why This Exists
 
-## Why Someone Would Want It
+Coding agents are useful because they can inspect a repo, edit files, run commands, and iterate quickly. That is also why they are risky. A fast agent can delete a file, touch secrets, run a network command, or drift away from the task before a human notices.
 
-Autonomous coding agents can move fast. That is useful, but risky. A tool that can edit files, run shell commands, call network tools, or deploy code can also make mistakes very quickly.
+Cortex Sentinel is for developers who want the productivity of local coding agents without treating the agent as fully trusted infrastructure.
 
-Cortex Sentinel helps with three practical problems:
-
-- **Control:** it can suspend, resume, approve, block, or kill the supervised process.
-- **Policy:** deterministic rules block known-dangerous actions such as secret-file access, external network calls, and production deploy attempts.
-- **Evidence:** every important decision can be saved locally so a human can review what happened later.
-
-For a college freshman analogy: imagine a self-driving car in a parking lot. Cortex Sentinel is not a concrete wall around the car. It is closer to a driving instructor with a brake pedal, a checklist, and a dashcam.
+In college-freshman terms: imagine a student lab where a robot can solder, cut, and test parts. Cortex Sentinel is the lab supervisor. It does not make the tools harmless, but it can pause the robot, enforce rules, ask for permission, write down what happened, and help restore damage in known protected areas.
 
 ## What It Does
 
-Cortex Sentinel can:
+1. Launches a local command or coding agent through `sentinel run`.
+2. Watches output for confirmation prompts and risky command text.
+3. Detects file effects in the workspace.
+4. Applies deterministic policy before any model judgment.
+5. Blocks protected files, secret-like paths, external network commands, and production deploy effects.
+6. Sends ambiguous actions to a local MLX/Gemma auditor when configured.
+7. Shows pending decisions in a terminal UI with approve, block, pause, kill, and override controls.
+8. Records JSONL traces with policy decisions, file effects, user actions, rollback events, process lifecycle events, and stable digests.
+9. Replays traces as JSON or text so the session can be inspected later.
 
-- launch an agent command from the terminal;
-- detect confirmation prompts such as `[y/n]` or lines ending in `?`;
-- watch workspace file changes;
-- classify file and command effects into risk categories;
-- auto-allow low-risk configured paths;
-- block protected files and secret-like paths;
-- block external network and production deploy command effects;
-- require explicit confirmation for deletes;
-- ask a local MLX/Gemma auditor for structured review on ambiguous actions;
-- show pending approvals in a Textual terminal UI;
-- queue multiple pending approvals instead of overwriting them;
-- create temporary scoped allow overrides from the CLI, from a pending file effect, or from a manual TUI input modal;
-- roll back protected files when a blocked created/modified/deleted protected effect can be safely repaired;
-- write local trace files and replay them as JSON or text;
-- report current readiness against `GOAL.md`.
+## What Is Proven
 
-## How It Works
+Current evidence from this repo:
 
-At runtime, Cortex Sentinel sits between a human and an agent process.
+- Root test suite has passed with `142 passed`.
+- Nested `mcp-cortex` suite has passed with `11 passed`.
+- A fresh independent clone from GitHub passed after the optional MCP-Cortex dependency path was fixed: `140 passed, 2 skipped`.
+- The MLX/Gemma auditor smoke has loaded `mlx-community/gemma-4-12B-it-OptiQ-4bit` and returned structured `allow` / `green` output in a Metal-capable local session.
+- Codex full-screen TUI smoke has been proven through workspace trust, command approval, and harmless output `SENTINEL_CODEX_TUI_OK`.
+- Claude Code startup trust-prompt control has been proven in a disposable workspace.
+- Continuous protected-file enforcement is proven with a no-prompt `.env` write that suspends the runner and rolls back the created protected file.
 
-1. **Runner starts the agent.** The app launches the command you pass to `sentinel run`.
-2. **Prompt detector watches output.** If the agent asks for confirmation, the TUI starts a safety check.
-3. **File observer checks effects.** The app compares workspace snapshots to see what files were created, modified, or deleted.
-4. **Policy layer decides first.** Hard rules block protected paths, secrets, external network commands, and production deploys before any model judgment.
-5. **Auditor handles ambiguity.** For review cases, a local MLX/Gemma auditor must return structured JSON. Free-text `YES` is not enough.
-6. **Human approves or blocks.** Review and confirm outcomes wait for explicit user action.
-7. **Enforcer watches continuously.** A background enforcer can detect no-prompt protected writes and suspend the runner.
-8. **Trace store records evidence.** Decisions, file effects, user actions, rollback events, and process events are written to local JSONL traces.
+What is still open:
+
+- Full interactive Claude/Gemini tool-confirmation flows are not yet proven end to end.
+- Default readiness leaves the real Gemma auditor external-blocked unless a Metal-capable session opts in.
+- MCP-Cortex is trace-oriented in this version. It records decisions; it does not proxy or authorize real MCP traffic.
+- Sentinel supervises and reacts. It is not a kernel sandbox, container boundary, or formal security product.
 
 ## Quick Start
 
-Install the package into the repo virtual environment:
+Install into a local Python environment:
+
+```bash
+pip install -e .
+```
+
+If you are using this repo's virtual environment:
 
 ```bash
 venv/bin/python -m pip install -e .
@@ -74,59 +70,34 @@ venv/bin/python -m pip install -e .
 Check the local MLX/Gemma environment:
 
 ```bash
-venv/bin/sentinel check-env
+sentinel check-env
 ```
 
 Inspect the current proof matrix:
 
 ```bash
-venv/bin/sentinel readiness --no-run
-```
-
-Run disposable local smokes:
-
-```bash
-venv/bin/python scripts/sentinel_smoke.py
-venv/bin/python scripts/agent_integration_smoke.py
-venv/bin/python scripts/enforcement_smoke.py
-venv/bin/python scripts/trace_smoke.py
-python scripts/e2e_smoke.py
-python scripts/real_agent_smoke.py --dry-run
-python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5
-python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8
-python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30
-python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60
+sentinel readiness --no-run
 python scripts/readiness_check.py
 ```
 
 Run a simple command under supervision:
 
 ```bash
-venv/bin/sentinel run --config sentinel.yaml -- python -c "print('ready')"
-```
-
-Run a coding agent under supervision only in a disposable workspace until behavior is proven:
-
-```bash
-venv/bin/sentinel run --config sentinel.yaml -- claude .
+sentinel run --config sentinel.yaml -- python -c "print('ready')"
 ```
 
 Run with a temporary scoped path override:
 
 ```bash
-venv/bin/sentinel run --config sentinel.yaml --allow-path "src/ui/**" -- python agent.py
+sentinel run --config sentinel.yaml --allow-path "src/ui/**" -- python agent.py
 ```
 
-In the TUI:
+Replay a saved trace:
 
-- `a` approves a pending action.
-- `b` blocks a pending action.
-- `o` creates an allow override from the current pending file effect.
-- `m` opens a manual override input for an arbitrary glob such as `src/ui/**`.
-- `v` lists active overrides.
-- `x` clears overrides.
-- `p` pauses or resumes the agent.
-- `k` kills the agent.
+```bash
+sentinel trace replay .sentinel/traces/<session>.jsonl
+sentinel trace replay --format text .sentinel/traces/<session>.jsonl
+```
 
 ## Installation
 
@@ -148,7 +119,13 @@ sentinel trace replay .sentinel/traces/<session>.jsonl
 sentinel trace replay --format text .sentinel/traces/<session>.jsonl
 ```
 
-The local Gemma auditor uses `mlx_lm` with `mlx-community/gemma-4-12B-it-OptiQ-4bit`. The repo virtual environment has been verified to contain the needed `gemma4_unified -> gemma4` mapping, and the real auditor smoke passes when run from a macOS session with Metal access.
+The local Gemma auditor uses `mlx_lm` with:
+
+```text
+mlx-community/gemma-4-12B-it-OptiQ-4bit
+```
+
+The repo virtual environment has been verified to contain the needed `gemma4_unified -> gemma4` mapping. The real auditor smoke requires macOS Metal access.
 
 ## Configuration Reference
 
@@ -194,8 +171,8 @@ policy_profiles:
 
 Policy outcomes:
 
-- `allow`: continue without model review when deterministic policy approves.
-- `block`: suspend or refuse the action.
+- `allow`: continue when deterministic policy approves.
+- `block`: refuse or suspend the risky action.
 - `review`: ask the auditor, then wait for explicit user approval.
 - `confirm`: wait for explicit user approval without using the auditor.
 
@@ -214,52 +191,71 @@ Cortex Sentinel separates deterministic policy from LLM judgment. Protected path
 Important limitations:
 
 - Continuous enforcement is polling-based. It detects, suspends, and can roll back protected-path effects after they appear; it is not pre-write OS sandboxing.
-- Real Claude Code startup trust-prompt control is proven in a disposable workspace with `--claude-trust-smoke`. Real Codex non-interactive model/tool command execution is proven with `--codex-exec-smoke`. Real Codex full-screen TUI workspace trust and command approval are proven with `--codex-tui-smoke`. Full interactive Claude/Gemini tool-confirmation behavior is not yet proven.
-- The PTY runner answers basic terminal queries, including a cursor-position query fixture, and starts children with a usable default 24x80 window size. It is still not a complete terminal emulator.
+- Real Claude Code startup trust-prompt control is proven. Real Codex non-interactive model/tool command execution is proven. Real Codex full-screen TUI workspace trust and command approval are proven. Full interactive Claude/Gemini tool-confirmation behavior is not yet proven.
+- The PTY runner answers basic terminal queries and starts children with a usable default 24x80 window size. It is still not a complete terminal emulator.
 - `scripts/real_agent_smoke.py` is opt-in and only as safe as the command you pass to it. Use disposable workspaces and avoid secrets.
 - MCP-Cortex integration is trace-oriented in this app version. It records decisions; it does not proxy or authorize real MCP traffic.
-- The real Gemma auditor smoke requires local Metal access; restricted or non-Metal sessions can still fail with no Metal device.
 - Do not pass secrets, credentials, PHI, private keys, or unnecessary sensitive data into prompts or traces.
 
-## Testing Done And Current Results
+## How It Works
 
-The project has several layers of tests.
+At runtime, Cortex Sentinel sits between the human and the agent process.
+
+1. **Runner starts the agent.** The app launches the command passed to `sentinel run`.
+2. **Prompt detector watches output.** If the agent asks for confirmation, the TUI starts a safety check.
+3. **File observer checks effects.** The app compares workspace snapshots to see what files were created, modified, or deleted.
+4. **Policy layer decides first.** Hard rules block protected paths, secrets, external network commands, and production deploys.
+5. **Auditor handles ambiguity.** For review cases, a local MLX/Gemma auditor must return structured JSON. Free-text `YES` is not enough.
+6. **Human approves or blocks.** Review and confirm outcomes wait for explicit user action.
+7. **Enforcer watches continuously.** A background enforcer can detect no-prompt protected writes and suspend the runner.
+8. **Trace store records evidence.** Decisions, file effects, user actions, rollback events, and process events are written to local JSONL traces.
+
+## Testing Done
 
 Unit and integration tests:
 
-- `pytest -q`: last verified with `142 passed in 128.80s`.
-- `python -m pytest -q` from `mcp-cortex/`: last verified with `11 passed in 0.52s`.
+```bash
+pytest -q
+(cd mcp-cortex && python -m pytest -q)
+```
 
-Smoke tests:
+Disposable local smokes:
 
-- `venv/bin/python scripts/sentinel_smoke.py`: verifies the repo venv can import `mlx_lm` and has the `gemma4_unified -> gemma4` mapping.
-- `venv/bin/python scripts/auditor_smoke.py --dry-run`: verifies structured auditor output without loading the real model.
-- `venv/bin/python scripts/auditor_smoke.py`: passes when local Metal access is available; the verified run loaded `mlx-community/gemma-4-12B-it-OptiQ-4bit`, returned a structured `allow` / `green` verdict, and reported load/audit timing.
-- `venv/bin/python scripts/agent_integration_smoke.py`: verifies PTY prompt detection, input injection, disposable file write, and process kill.
-- `venv/bin/python scripts/enforcement_smoke.py`: verifies a no-prompt `.env` write is detected, the runner is suspended, rollback is performed, and the protected file is absent after rollback.
-- `venv/bin/python scripts/trace_smoke.py`: verifies trace fields and stable digests.
-- `python scripts/e2e_smoke.py`: verifies the aggregate local safety loop, including safe auto-approval, protected-path block, ambiguous auditor fallback, no-prompt protected write rollback, PTY prompt handling, trace export, and config profile behavior.
-- `python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5`: verifies safe non-interactive version probes for Codex, Claude Code, and Gemini. This does not prove interactive agent behavior.
-- `python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8`: verifies Sentinel can launch Claude Code in a disposable workspace, detect Claude's own startup trust prompt, inject the safe `No, exit` response, and kill the process. This proves startup prompt/control only; it does not prove model/tool confirmation behavior.
-- `python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30`: verifies Codex can run a harmless shell `command_execution` in an ephemeral temp workspace and produce `SENTINEL_CODEX_OK`. This proves real model/tool command execution, not interactive prompt control. In this managed session, it needs local app-server access outside the restricted sandbox.
-- `python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60`: verifies Codex's full-screen TUI can be driven in an ephemeral git workspace through workspace trust, command approval, and harmless output `SENTINEL_CODEX_TUI_OK`.
-- `python scripts/real_agent_smoke.py --interaction "REGEX=>INPUT" ...`: supports scripted multi-prompt disposable flows, such as startup trust followed by a tool confirmation. The harness now rejects expected-output matches that already appeared before the final response, so echoed prompts cannot count as successful tool output.
-- `pytest -q tests/test_pty_runner.py`: includes terminal cursor-position and PTY window-size fixtures proving the runner can answer a basic `ESC[6n` query and provide a nonzero 24x80 size to child processes.
+```bash
+venv/bin/python scripts/sentinel_smoke.py
+venv/bin/python scripts/agent_integration_smoke.py
+venv/bin/python scripts/enforcement_smoke.py
+venv/bin/python scripts/trace_smoke.py
+python scripts/e2e_smoke.py
+```
 
-Readiness matrix:
+Auditor and real-agent smokes:
 
-- `python scripts/readiness_check.py`: default local mode is `partial`, with `10 pass`, `6 manual`, `1 external_blocked`, and `0 fail`. The real auditor and real-agent Codex smokes remain opt-in by default because they require local Metal/Codex runtime access.
-- `python scripts/readiness_check.py --run-real-auditor --run-claude-trust-smoke --run-codex-exec-smoke --run-codex-tui-smoke`: latest target is `partial`, with `14 pass`, `3 manual`, `0 external_blocked`, and `0 fail` when local Metal and Codex app-server access are available.
-- The remaining real-agent manual items are full interactive Claude/Gemini tool-confirmation commands in disposable workspaces. Claude Code startup trust, Codex non-interactive model/tool execution, Codex full-screen TUI command approval, synthetic multi-prompt flows, and one real Gemma structured verdict are now proven. A real Claude Code tool attempt trusted the temp workspace and typed the harmless prompt, but it did not reach a tool permission prompt before timeout. Gemini prompted for browser authentication in this session.
+```bash
+venv/bin/python scripts/auditor_smoke.py --dry-run
+venv/bin/python scripts/auditor_smoke.py
+python scripts/real_agent_smoke.py --dry-run
+python scripts/real_agent_smoke.py --probe-installed-agents --timeout 5
+python scripts/real_agent_smoke.py --claude-trust-smoke --timeout 8
+python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30
+python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60
+```
 
-Release checks:
+Readiness and release checks:
 
-- `python scripts/release_check.py --skip-wheel` verifies package metadata, README sections, and the console script.
-- `python scripts/release_check.py --wheel-dir /tmp/cortex-sentinel-release-check` has built a local wheel: `cortex_sentinel-0.1.0-py3-none-any.whl`.
+```bash
+sentinel readiness --no-run
+python scripts/readiness_check.py
+python scripts/release_check.py --skip-wheel
+python scripts/release_check.py --wheel-dir /tmp/cortex-sentinel-release-check
+git diff --check
+```
+
+`scripts/readiness_check.py` emits a JSON proof matrix for [GOAL.md](GOAL.md). By default it runs local disposable smokes and safe non-interactive agent metadata probes, leaves full test suites and remaining real interactive agent commands as manual evidence, and marks the real auditor smoke externally blocked unless `--run-real-auditor` is provided in a Metal-capable session.
 
 ## Drift From The Initial Plan
 
-The initial direction was to make the local Gemma auditor and basic agent supervision work. The project grew into a broader local safety console.
+The initial plan was to make the local Gemma auditor and basic agent supervision work. The project grew into a broader local safety console.
 
 Useful drift:
 
@@ -268,17 +264,14 @@ Useful drift:
 - Added persistent trace storage and trace replay.
 - Added package metadata, a `sentinel` CLI, and a readiness matrix.
 - Added a guarded real-agent harness and safe CLI metadata probes.
-- Added a bounded Claude Code trust-prompt smoke for real PTY startup/control evidence.
-- Added scripted multi-prompt interactions to the real-agent harness for startup-plus-tool-confirmation-shaped flows.
-- Added a bounded Codex exec smoke for real non-interactive model/tool command execution evidence.
-- Added a bounded Codex full-screen TUI smoke for real workspace-trust, command-approval, and command-output evidence.
+- Added bounded Claude Code and Codex smokes for real local interaction evidence.
 - Added a richer TUI approval flow, approval queue, dedicated panel, and manual override input.
 
 Unresolved drift:
 
-- The plan expected real Gemma auditor verification; that is now proven in a Metal-capable local run, but default readiness still treats it as opt-in because restricted sessions may not expose Metal.
-- The plan expected real local agent validation. PTY fixtures, basic terminal query/window-size responses, CLI version probes, a bounded Claude Code startup trust prompt, synthetic multi-prompt flows, Codex non-interactive model/tool execution, and Codex full-screen TUI command approval now pass. Deliberately safe real interactive Claude/Gemini tool-confirmation runs are still not complete.
-- MCP-Cortex is used as trace-oriented metadata support, not as a full MCP authorization proxy.
+- Real Gemma verification is proven in Metal-capable local runs but remains opt-in in default readiness.
+- Full interactive Claude/Gemini tool-confirmation runs are still not complete.
+- MCP-Cortex is trace-oriented metadata support, not a full MCP authorization proxy.
 
 ## Troubleshooting
 
@@ -310,6 +303,12 @@ Run a simple command under supervision:
 sentinel run --config sentinel.yaml -- python -c "print('ready')"
 ```
 
+Run a coding agent under supervision only in a disposable workspace until behavior is proven:
+
+```bash
+sentinel run --config sentinel.yaml -- claude .
+```
+
 Run with a temporary scoped override:
 
 ```bash
@@ -321,18 +320,6 @@ Replay a trace:
 ```bash
 sentinel trace replay .sentinel/traces/session-example.jsonl
 sentinel trace replay --format text .sentinel/traces/session-example.jsonl
-```
-
-Run the structured auditor dry run:
-
-```bash
-venv/bin/python scripts/auditor_smoke.py --dry-run
-```
-
-Run the real auditor smoke from a Metal-capable local macOS session:
-
-```bash
-venv/bin/python scripts/auditor_smoke.py
 ```
 
 Run the guarded real-agent smoke only with an explicit disposable command:
@@ -370,10 +357,6 @@ python scripts/real_agent_smoke.py --codex-exec-smoke --timeout 30
 python scripts/real_agent_smoke.py --codex-tui-smoke --timeout 60
 git diff --check
 ```
-
-`scripts/readiness_check.py` emits a JSON proof matrix for the `GOAL.md` checks. It runs local disposable smokes and safe non-interactive agent CLI metadata probes by default, leaves full test suites and remaining real interactive agent commands as manual evidence, and marks the real auditor smoke as externally blocked unless `--run-real-auditor` is provided in a Metal-capable session. Add `--run-claude-trust-smoke` to run the bounded Claude Code startup trust-prompt smoke in a disposable workspace. Add `--run-codex-exec-smoke` to run the bounded Codex exec model/tool smoke in an ephemeral temp workspace. Add `--run-codex-tui-smoke` to run the bounded Codex full-screen TUI workspace-trust and command-approval smoke. With all four optional real checks enabled in a suitable local session, the expected result is `14 pass`, `3 manual`, and `0 external_blocked`.
-
-Use `--include-tests` when you want the readiness report to run the root and MCP-Cortex pytest suites as part of the matrix. In managed/sandboxed sessions, nested subprocess calls inside the root suite may be reported as externally blocked; run `pytest -q` directly for authoritative root-suite evidence.
 
 Run the release metadata and wheel check:
 
